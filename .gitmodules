@@ -1,0 +1,9 @@
+[submodule "quic/quiche"]
+	path = quic/quiche
+	url = https://quiche.googlesource.com/quiche.git
+[submodule "quic/msquic"]
+	path = quic/msquic
+	url = https://github.com/microsoft/msquic
+[submodule "quic/mvfst"]
+	path = quic/mvfst
+	url = https://github.com/facebookincubator/mvfst
