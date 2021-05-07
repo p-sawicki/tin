@@ -1,9 +1,12 @@
-[submodule "quic/quiche"]
-	path = quic/quiche
-	url = https://quiche.googlesource.com/quiche.git
 [submodule "quic/msquic"]
 	path = quic/msquic
 	url = https://github.com/microsoft/msquic
 [submodule "quic/mvfst"]
 	path = quic/mvfst
 	url = https://github.com/facebookincubator/mvfst
+[submodule "picoquic_impl/picotls"]
+	path = picoquic_impl/picotls
+	url = https://github.com/h2o/picotls.git
+[submodule "picoquic_impl/picoquic"]
+	path = picoquic_impl/picoquic
+	url = https://github.com/private-octopus/picoquic.git
