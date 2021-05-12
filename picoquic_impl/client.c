@@ -5,7 +5,8 @@
 #include <picoquic_utils.h>
 #include <picosocks.h>
 #include <stdint.h>
-#include <stdio.h>
+
+FILE *log_file;
 
 typedef struct stream_ctx_t {
   struct stream_ctx_t *next_stream;
@@ -29,7 +30,8 @@ static int create_stream(picoquic_cnx_t *cnx, ctx_t *client_ctx,
   stream_ctx_t *stream_ctx = (stream_ctx_t *)malloc(sizeof(stream_ctx_t));
 
   if (stream_ctx == NULL) {
-    fprintf(stdout, "Memory error, cannot create stream for packet number %d\n",
+    fprintf(log_file,
+            "Memory error, cannot create stream for packet number %d\n",
             (int)packet_rank);
     ret = -1;
   } else {
@@ -49,11 +51,11 @@ static int create_stream(picoquic_cnx_t *cnx, ctx_t *client_ctx,
         picoquic_mark_active_stream(cnx, stream_ctx->stream_id, 1, stream_ctx);
 
     if (ret != 0) {
-      fprintf(stdout,
+      fprintf(log_file,
               "Error %d, cannot initialize stream for packet number %d\n", ret,
               (int)packet_rank);
     } else {
-      printf("Opened stream %d\n", 4 * packet_rank);
+      fprintf(log_file, "Opened stream %d\n", 4 * packet_rank);
     }
   }
   return ret;
@@ -73,8 +75,8 @@ static void report(ctx_t *client_ctx) {
       status = "unknown status";
     }
 
-    printf("%ld: %s, received %zu bytes", stream_ctx->stream_id, status,
-           stream_ctx->bytes_received);
+    fprintf(log_file, "%ld: %s, received %zu bytes", stream_ctx->stream_id,
+            status, stream_ctx->bytes_received);
 
     if (stream_ctx->is_stream_reset &&
         stream_ctx->remote_error != PICOQUIC_NO_ERROR) {
@@ -94,10 +96,10 @@ static void report(ctx_t *client_ctx) {
         break;
       }
 
-      printf(", error 0x%" PRIx64 " -- %s", stream_ctx->remote_error,
-             error_text);
+      fprintf(log_file, ", error 0x%" PRIx64 " -- %s", stream_ctx->remote_error,
+              error_text);
     }
-    printf("\n");
+    fprintf(log_file, "\n");
     stream_ctx = stream_ctx->next_stream;
   }
 }
@@ -135,7 +137,7 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
       if (length > 0) {
         for (size_t i = 0; i < length; ++i) {
           if (bytes[i] != PICOQUIC_PACKET_BYTE) {
-            fprintf(stderr, "Received incorrect data.\n");
+            fprintf(log_file, "Received incorrect data.\n");
             ret = -1;
             break;
           }
@@ -173,7 +175,7 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
 
       if (client_ctx->nb_packets_received + client_ctx->nb_packets_failed >=
           client_ctx->nb_packets) {
-        fprintf(stdout, "All done, closing the connection.\n");
+        fprintf(log_file, "All done, closing the connection.\n");
         ret = picoquic_close(cnx, 0);
       }
     }
@@ -181,12 +183,12 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
   case picoquic_callback_stateless_reset:
   case picoquic_callback_close:
   case picoquic_callback_application_close:
-    fprintf(stdout, "Connection closed.\n");
+    fprintf(log_file, "Connection closed.\n");
     client_ctx->is_disconnected = 1;
     picoquic_set_callback(cnx, NULL, NULL);
     break;
   case picoquic_callback_version_negotiation:
-    fprintf(stdout, "Received a version negotiation request:");
+    fprintf(log_file, "Received a version negotiation request:");
     for (size_t byte_index = 0; byte_index + 4 <= length; byte_index += 4) {
       uint32_t vn = 0;
 
@@ -195,10 +197,10 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
         vn += bytes[byte_index + i];
       }
 
-      fprintf(stdout, "%s%08x", (byte_index == 0) ? " " : ", ", vn);
+      fprintf(log_file, "%s%08x", (byte_index == 0) ? " " : ", ", vn);
     }
 
-    fprintf(stdout, "\n");
+    fprintf(log_file, "\n");
     break;
   case picoquic_callback_prepare_to_send:
     if (stream_ctx == NULL) {
@@ -217,10 +219,10 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
     }
     break;
   case picoquic_callback_almost_ready:
-    fprintf(stdout, "Connection to the server completed, almost ready.\n");
+    fprintf(log_file, "Connection to the server completed, almost ready.\n");
     break;
   case picoquic_callback_ready:
-    fprintf(stdout, "Connection to the server confirmed.\n");
+    fprintf(log_file, "Connection to the server confirmed.\n");
     break;
   default:
     break;
@@ -239,7 +241,7 @@ static int loop_cb(picoquic_quic_t *quic, picoquic_packet_loop_cb_enum cb_mode,
   } else {
     switch (cb_mode) {
     case picoquic_packet_loop_ready:
-      fprintf(stdout, "Waiting for packets.\n");
+      fprintf(log_file, "Waiting for packets.\n");
       break;
     case picoquic_packet_loop_after_receive:
       break;
@@ -276,8 +278,8 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
   ret = picoquic_get_server_address(server_name, server_port, &server_address,
                                     &is_name);
   if (ret != 0) {
-    fprintf(stderr, "Cannot get the IP address for <%s> port <%d>", server_name,
-            server_port);
+    fprintf(log_file, "Cannot get the IP address for <%s> port <%d>",
+            server_name, server_port);
   } else if (is_name) {
     sni = server_name;
   }
@@ -288,11 +290,11 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
                            ticket_store_filename, NULL, 0);
 
     if (quic == NULL) {
-      fprintf(stderr, "Could not create quic context\n");
+      fprintf(log_file, "Could not create quic context\n");
       ret = -1;
     } else {
       if (picoquic_load_retry_tokens(quic, token_store_filename) != 0) {
-        fprintf(stderr, "No token file present. Will create one as <%s>.\n",
+        fprintf(log_file, "No token file present. Will create one as <%s>.\n",
                 token_store_filename);
       }
 
@@ -307,7 +309,8 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
     client_ctx.packet_size = packet_size;
     client_ctx.nb_packets = nb_packets;
 
-    printf("Starting connection to %s, port %d\n", server_name, server_port);
+    fprintf(log_file, "Starting connection to %s, port %d\n", server_name,
+            server_port);
 
     cnx = picoquic_create_cnx(quic, picoquic_null_connection_id,
                               picoquic_null_connection_id,
@@ -315,23 +318,22 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
                               0, sni, PICOQUIC_ALPN, 1);
 
     if (cnx == NULL) {
-      fprintf(stderr, "Could not create connection context\n");
+      fprintf(log_file, "Could not create connection context\n");
       ret = -1;
     } else {
       picoquic_set_callback(cnx, callback, &client_ctx);
       ret = picoquic_start_client_cnx(cnx);
 
       if (ret < 0) {
-        fprintf(stderr, "Could not activate connection\n");
+        fprintf(log_file, "Could not activate connection\n");
       } else {
         picoquic_connection_id_t icid = picoquic_get_initial_cnxid(cnx);
-        printf("Initial connection ID: ");
+        fprintf(log_file, "Initial connection ID: ");
 
         for (uint8_t i = 0; i < icid.id_len; ++i) {
-          printf("%02x", icid.id[i]);
+          fprintf(log_file, "%02x", icid.id[i]);
         }
-
-        printf("\n");
+        fprintf(log_file, "\n");
       }
     }
 
@@ -339,7 +341,7 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
       ret = create_stream(cnx, &client_ctx, i);
 
       if (ret < 0) {
-        fprintf(stderr, "Could not initiate stream for fi\n");
+        fprintf(log_file, "Could not initiate stream for fi\n");
       }
     }
   }
@@ -350,11 +352,12 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
 
   if (quic != NULL) {
     if (picoquic_save_session_tickets(quic, ticket_store_filename) != 0) {
-      fprintf(stderr, "Could not store the saved session tickets.\n");
+      fprintf(log_file, "Could not store the saved session tickets.\n");
     }
 
     if (picoquic_save_retry_tokens(quic, token_store_filename) != 0) {
-      fprintf(stderr, "Could not save tokens to <%s>.\n", token_store_filename);
+      fprintf(log_file, "Could not save tokens to <%s>.\n",
+              token_store_filename);
     }
 
     picoquic_free(quic);
@@ -380,6 +383,8 @@ int main(int argc, char **argv) {
   if (argc < 4) {
     usage(argv[0]);
   } else {
+    log_file = open_log();
+
     int server_port = get_port(argv[0], argv[2]);
     int scenario = atoi(argv[3]);
     int nb_packets;
@@ -411,6 +416,7 @@ int main(int argc, char **argv) {
 
     exit_code =
         picoquic_client(argv[1], server_port, nb_packets, wait, packet_size);
+    fclose(log_file);
   }
 
   exit(exit_code);
