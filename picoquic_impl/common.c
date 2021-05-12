@@ -20,3 +20,16 @@ int is_valid_packet_size(enum packet_size_t size) {
   }
   return 0;
 }
+
+FILE *open_log() {
+  const char *pid = malloc(11);
+  sprintf(pid, "%d", getpid());
+
+  const char *log_file_path =
+      malloc(strlen(PICOQUIC_CLIENT_QLOG_DIR) + strlen(pid) + 2);
+  strcpy(log_file_path, PICOQUIC_CLIENT_QLOG_DIR);
+  strcat(log_file_path, "/");
+  strcat(log_file_path, pid);
+
+  return fopen(log_file_path, "w");
+}

@@ -5,7 +5,8 @@
 #include <picoquic_utils.h>
 #include <picosocks.h>
 #include <stdint.h>
-#include <stdio.h>
+
+FILE *log_file;
 
 typedef struct stream_ctx_t {
   struct stream_ctx_t *next_stream, *prev_stream;
@@ -190,7 +191,7 @@ int picoquic_server(int server_port, const char *pem_cert,
   uint64_t current_time = 0;
   ctx_t default_context = {0};
 
-  printf("Starting picoquic server on port %d\n", server_port);
+  fprintf(log_file, "Starting picoquic server on port %d\n", server_port);
 
   current_time = picoquic_current_time();
   quic = picoquic_create(8, pem_cert, pem_key, NULL, PICOQUIC_ALPN, callback,
@@ -198,7 +199,7 @@ int picoquic_server(int server_port, const char *pem_cert,
                          NULL, NULL, 0);
 
   if (quic == NULL) {
-    fprintf(stderr, "Could not create server context\n");
+    fprintf(log_file, "Could not create server context\n");
     ret = -1;
   } else {
     picoquic_set_cookie_mode(quic, 2);
@@ -212,7 +213,7 @@ int picoquic_server(int server_port, const char *pem_cert,
     ret = picoquic_packet_loop(quic, server_port, 0, 0, 0, 0, NULL, NULL);
   }
 
-  printf("Server exit, ret = %d\n", ret);
+  fprintf(log_file, "Server exit, ret = %d\n", ret);
 
   if (quic != NULL) {
     picoquic_free(quic);
@@ -237,8 +238,11 @@ int main(int argc, char **argv) {
   if (argc < 4) {
     usage(argv[0]);
   } else {
+    log_file = open_log();
+
     int server_port = get_port(argv[0], argv[1]);
     exit_code = picoquic_server(server_port, argv[2], argv[3]);
+    fclose(log_file);
   }
 
   exit(exit_code);
