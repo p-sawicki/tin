@@ -1,11 +1,8 @@
-#include <iostream>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <vector>
+#include "Logger.hpp"
+#include "utils.hpp"
 
-const char *const CERT_DEFAULT = "cert.pem", *const KEY_DEFAULT = "key.pem";
+const char *CERT_DEFAULT = "cert.pem", *KEY_DEFAULT = "key.pem",
+           *LOGGER_IN = "/logger_in", *LOGGER_OUT = "/logger_out";
 const int MIN_DEFAULT = 1, MAX_DEFAULT = 101, STEP_DEFAULT = 10,
           REPEAT_DEFAULT = 1;
 
@@ -58,36 +55,6 @@ void parseArgs(int argc, char **argv, const char *cert, const char *key,
   }
 }
 
-void error(const char *func) {
-  std::cerr << func << " ERROR: " << strerror(errno) << "\n";
-  exit(errno);
-}
-
-pid_t _fork() {
-  pid_t res = fork();
-  if (res < 0) {
-    error(__func__);
-  }
-  return res;
-}
-
-pid_t _wait() {
-  int status;
-  pid_t res = wait(&status);
-  if (res < 0) {
-    error(__func__);
-  }
-  return res;
-}
-
-template <class T, class... U> int _execl(T path, U &&...args) {
-  int res = execl(path, path, std::forward<U>(args)..., nullptr);
-  if (res) {
-    error(__func__);
-  }
-  return res;
-}
-
 std::vector<pid_t> startServers(const char *cert, const char *key) {
   std::cout << "Starting servers\n";
 
@@ -100,13 +67,11 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
   // start mvfst server
   // start tcp server
 
-  // run loggers for servers
-
   std::cout << "All servers started\n";
   return {pico}; // return {pico, msquic, mvfst, tcp};
 }
 
-void picoquic(int clients) {
+void picoquic(int clients, const Logger &logger) {
   std::cout << "\t\tRunning picoquic clients\n";
 
   std::vector<const char *> scenarios{"1", "2", "3", "4"};
@@ -123,11 +88,14 @@ void picoquic(int clients) {
       clientPIDs.push_back(clientPID);
     }
 
-    // run logger for clients
+    for (pid_t pid : clientPIDs) {
+      logger.logPID(pid);
+    }
 
     for (int i = 0; i < clients; ++i) {
       _wait();
     }
+    logger.remove(clients);
   }
   std::cout << "\t\tAll scenarios with picoquic finished\n";
 }
@@ -139,7 +107,12 @@ int main(int argc, char **argv) {
 
   parseArgs(argc, argv, cert, key, min, max, step, repeat);
 
+  Logger logger(LOGGER_IN, LOGGER_OUT);
+
   auto serverPIDs = startServers(cert, key);
+  for (pid_t pid : serverPIDs) {
+    logger.logPID(pid);
+  }
 
   for (int i = 0; i < repeat; ++i) {
     std::cout << "Run #" << i + 1 << "\n";
@@ -147,7 +120,7 @@ int main(int argc, char **argv) {
     for (int j = min; j <= max; j += step) {
       std::cout << "\tStarting scenarios with " << j << " clients\n";
 
-      picoquic(j);
+      picoquic(j, logger);
 
       // msquic(j);
 

@@ -35,16 +35,19 @@ def logger_worker(proc_stack_lock: threading.Lock, proc_stack: list, period):
             proc_stack_lock.acquire(True)
 
             for proc in proc_stack:
-                g = proc_stat_re.match(proc["stat_file"].read()).groups()
-                proc["stat_file"].seek(0)
-                t = int(g[0]) + int(g[1])
-                m = int(g[2])
+                try:
+                    g = proc_stat_re.match(proc["stat_file"].read()).groups()
+                    proc["stat_file"].seek(0)
+                    t = int(g[0]) + int(g[1])
+                    m = int(g[2])
 
-                if proc["last_time"] > 0 and last_total_time > 0:
-                    u = (t - proc["last_time"]) / dt 
-                    proc["csv_writer"].writerow((current_time, m, u))
+                    if proc["last_time"] > 0 and last_total_time > 0:
+                        u = (t - proc["last_time"]) / dt 
+                        proc["csv_writer"].writerow((current_time, m, u))
 
-                proc["last_time"] = t 
+                    proc["last_time"] = t 
+                except ProcessLookupError:
+                    pass
                 
             proc_stack_lock.release()
             last_total_time = total_time
@@ -112,6 +115,7 @@ if __name__ == "__main__":
             elif msg == -2:
                 running = False 
                 worker.join()
+                output_queue.put(int(0).to_bytes(4, 'little', signed= True))
                 # print("End")
 
     except KeyboardInterrupt:

@@ -20,7 +20,7 @@ typedef struct stream_ctx_t {
 
 typedef struct ctx_t {
   stream_ctx_t *first_stream, *last_stream;
-  int nb_packets, nb_packets_received, nb_packets_failed, is_disconnected, wait;
+  int nb_packets, nb_packets_received, nb_packets_failed, is_disconnected;
   enum packet_size_t packet_size;
 } ctx_t;
 
@@ -154,7 +154,7 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
           ret = picoquic_close(cnx, 0);
         }
 
-        if (client_ctx->wait) {
+        if (client_ctx->nb_packets > 1) {
           sleep(6);
         }
       }
@@ -259,7 +259,7 @@ static int loop_cb(picoquic_quic_t *quic, picoquic_packet_loop_cb_enum cb_mode,
 }
 
 int picoquic_client(char const *server_name, int server_port, int nb_packets,
-                    int wait, enum packet_size_t packet_size) {
+                    enum packet_size_t packet_size) {
   int ret = 0;
   struct sockaddr_storage server_address;
   char const *sni = PICOQUIC_SNI,
@@ -269,7 +269,6 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
   picoquic_quic_t *quic = NULL;
 
   ctx_t client_ctx = {0};
-  client_ctx.wait = wait;
 
   picoquic_cnx_t *cnx = NULL;
   uint64_t current_time = picoquic_current_time();
@@ -409,13 +408,12 @@ int main(int argc, char **argv) {
       break;
     }
 
-    int wait = 0;
-    if (nb_packets > 1) {
-      wait = 1;
+    if (nb_packets == 1) {
+      srand(getpid());
+      sleep(rand() % 60);
     }
 
-    exit_code =
-        picoquic_client(argv[1], server_port, nb_packets, wait, packet_size);
+    exit_code = picoquic_client(argv[1], server_port, nb_packets, packet_size);
     fclose(log_file);
   }
 
