@@ -5,4 +5,5 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(picoquic_impl)
 add_subdirectory(msquic_impl)
+add_subdirectory(tcp)
 add_subdirectory(main_app)

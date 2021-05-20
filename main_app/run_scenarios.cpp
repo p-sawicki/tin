@@ -70,10 +70,15 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
   }
 
   // start mvfst server
+
   // start tcp server
+  pid_t tcp = _fork();
+  if (tcp == 0) {
+    _execl("build/tcp/tcp_server", "7000", cert, key);
+  }
 
   std::cout << "All servers started\n";
-  return {pico, msquic}; // return {pico, msquic, mvfst, tcp};
+  return {pico, msquic, tcp}; // return {pico, msquic, mvfst, tcp};
 }
 
 void runClients(int nbClients, const Logger &logger, const char *name,
@@ -105,6 +110,28 @@ void runClients(int nbClients, const Logger &logger, const char *name,
   std::cout << "\t\tAll scenarios with " << name << " finished\n";
 }
 
+void tcp(int clients) {
+  std::cout << "\t\tRunning tcp clients\n";
+  clients = 1;
+  std::vector<const char *> scenarios{"1", "2", "3", "4"};
+  for (const char *scenario : scenarios) {
+    std::cout << "\t\t\tScenario " << scenario << "\n";
+    std::vector<pid_t> clientPIDs;
+
+    for (int i = 0; i < clients; ++i) {
+      pid_t clientPID = _fork();
+      if (clientPID == 0) {
+        _execl("build/tcp/tcp_client", "localhost", "7000");
+      }
+      clientPIDs.push_back(clientPID);
+    }
+    for (int i = 0; i < clients; ++i) {
+      _wait();
+    }
+  }
+  std::cout << "\t\tAll scenarios with tcp finished\n";
+}
+
 int main(int argc, char **argv) {
   const char *cert = CERT_DEFAULT, *key = KEY_DEFAULT;
   int min = MIN_DEFAULT, max = MAX_DEFAULT, step = STEP_DEFAULT,
@@ -112,13 +139,12 @@ int main(int argc, char **argv) {
 
   parseArgs(argc, argv, cert, key, min, max, step, repeat);
 
-  Logger logger(LOGGER_IN, LOGGER_OUT);
+  // Logger logger(LOGGER_IN, LOGGER_OUT);
 
   auto serverPIDs = startServers(cert, key);
-  for (pid_t pid : serverPIDs) {
-    logger.logPID(pid);
-  }
-
+  // for (pid_t pid : serverPIDs) {
+  // logger.logPID(pid);
+  // }
   for (int i = 0; i < repeat; ++i) {
     std::cout << "Run #" << i + 1 << "\n";
 
@@ -132,7 +158,7 @@ int main(int argc, char **argv) {
 
       // mvfst(j);
 
-      // tcp(j);
+      tcp(j);
     }
   }
 
