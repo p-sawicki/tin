@@ -31,5 +31,6 @@ cmake --build build -j10
 
 ## Run
 ```
+mkdir logs
 build/main_app/run_scenarios --help
 ```
