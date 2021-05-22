@@ -8,12 +8,10 @@
 #define SA struct sockaddr
 
 void func(int sockfd) {
-	int n;
-    char buff[MAX] = "Czesc";
-    printf("Send '%s' to server\n", buff);
-    n = 0;
-    write(sockfd, buff, sizeof(buff));
-    bzero(buff, sizeof(buff));
+  char buff[MAX] = "Czesc";
+  printf("Send '%s' to server\n", buff);
+  write(sockfd, buff, sizeof(buff));
+  bzero(buff, sizeof(buff));
 }
 
 int create_client(char const *server_name, int server_port) {
