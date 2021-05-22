@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include "common.h"
 #define MAX 80
 #define PORT 8080
 #define SA struct sockaddr
@@ -14,8 +17,9 @@ void func(int sockfd) {
   bzero(buff, sizeof(buff));
 }
 
-int create_client(char const *server_name, int server_port) {
+int create_connection(char const *server_name, int server_port) {
 	int sockfd;
+  struct sockaddr_in servaddr;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
     printf("Staruje klient na port %d i ip %s\n", server_port, server_name);
@@ -26,17 +30,7 @@ int create_client(char const *server_name, int server_port) {
 	else
 		printf("Socket successfully created..\n");
 
-	return sockfd;
-}
-
-int tcp_client(char const *server_name, int server_port) {
-  	printf("Starting tcp client on port %d\n", server_port);
-	int sockfd;
-	struct sockaddr_in servaddr;
-
-	sockfd = create_client(server_name, server_port);
-
-	servaddr.sin_family = AF_INET;
+  servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	servaddr.sin_port = htons(server_port);
 
@@ -44,11 +38,62 @@ int tcp_client(char const *server_name, int server_port) {
 		printf("connection with the server failed...\n");
 		exit(0);
 	}
-	else {
-		printf("connected to the server..\n");
-		func(sockfd);
-	}
+	return sockfd;
+}
 
+void show_certs(SSL* ssl)
+{
+  X509 *cert;
+  char *line;
+  cert = SSL_get_peer_certificate(ssl);
+  if ( cert != NULL )
+  {
+      printf("Server certificates:\n");
+      line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+      printf("Subject: %s\n", line);
+      free(line);
+      line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+      printf("Issuer: %s\n", line);
+      free(line);
+      X509_free(cert);
+  }
+  else
+      printf("Info: No client certificates configured.\n");
+}
+
+int client_loop(SSL *ssl){
+  char buf[1024];
+  int bytes;
+
+  SSL_write(ssl, "Case 3", strlen("Case 3"));
+
+  while (bytes = SSL_read(ssl, buf, sizeof(buf))) {
+    printf("Received: \"%s\"\n", buf);
+    bzero(buf, sizeof(buf));
+  }
+}
+
+int tcp_client(char const *server_name, int server_port) {
+  printf("Starting tcp client on port %d\n", server_port);
+  SSL_CTX *ctx;
+  SSL *ssl;
+	int sockfd;
+
+  init_openssl();
+  ctx = create_context(CLIENT_CONTEXT);
+
+	sockfd = create_connection(server_name, server_port);
+  ssl = SSL_new(ctx);
+  SSL_set_fd(ssl, sockfd);
+  if ( SSL_connect(ssl) == -1 )
+      ERR_print_errors_fp(stderr);
+  else {
+    show_certs(ssl);
+    client_loop(ssl);
+    SSL_free(ssl);
+  }
+
+  SSL_CTX_free(ctx);
 	close(sockfd);
 }
 

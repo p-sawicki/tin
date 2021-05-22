@@ -1,45 +1,7 @@
-#include <stdio.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include "common.h"
 #define MAX 80
 #define PORT 8080
 #define SA struct sockaddr
-
-void init_openssl()
-{ 
-    SSL_load_error_strings();	
-    OpenSSL_add_ssl_algorithms();
-}
-
-void cleanup_openssl()
-{
-    EVP_cleanup();
-}
-
-SSL_CTX *create_context()
-{
-    const SSL_METHOD *method;
-    SSL_CTX *ctx;
-
-    method = SSLv23_server_method();
-
-    ctx = SSL_CTX_new(method);
-    if (!ctx) {
-	perror("Unable to create SSL context");
-	ERR_print_errors_fp(stderr);
-	exit(EXIT_FAILURE);
-    }
-
-    return ctx;
-}
 
 void configure_context(SSL_CTX *ctx, const char* pem_cert, const char* pem_key)
 {
@@ -48,12 +10,12 @@ void configure_context(SSL_CTX *ctx, const char* pem_cert, const char* pem_key)
     /* Set the key and cert */
     if (SSL_CTX_use_certificate_file(ctx, pem_cert, SSL_FILETYPE_PEM) <= 0) {
         ERR_print_errors_fp(stderr);
-	exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
     }
 
     if (SSL_CTX_use_PrivateKey_file(ctx, pem_key, SSL_FILETYPE_PEM) <= 0 ) {
         ERR_print_errors_fp(stderr);
-	exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
     }
 }
 
@@ -111,22 +73,41 @@ int create_server(char const *server_name, int server_port) {
 	return sockfd;
 }
 
-int server_loop(int sockfd) {
+void print_error_string(unsigned long err, const char* const label)
+{
+    const char* const str = ERR_reason_error_string(err);
+    if(str)
+        fprintf(stderr, "%s\n", str);
+    else
+        fprintf(stderr, "%s failed: %lu (0x%lx)\n", label, err, err);
+}
+
+int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
 	int msgsock, rval;
 	char buf[100];
+	unsigned long ssl_err = 0;
+	SSL *ssl;
 	do {
         msgsock = accept(sockfd,(struct sockaddr *) 0,(int *) 0);
         if (msgsock == -1 )
              perror("accept");
         else do {
-             memset(buf, 0, sizeof buf);
-             if ((rval = read(msgsock,buf, 80)) == -1)
-                 perror("reading stream message");
-             if (rval == 0)
-                 printf("Ending connection\n");
-             else
-                 printf("-->%s\n", buf);
-        } while (rval != 0);
+			ssl = SSL_new(ctx);
+        	SSL_set_fd(ssl, msgsock);
+			memset(buf, 0, sizeof buf);
+			if (SSL_accept(ssl) <= 0) {
+				ssl_err = SSL_get_error(ssl, -1);
+				print_error_string(ssl_err, "Problem pomcy");
+            	ERR_print_errors_fp(stderr);
+        	} else {
+				SSL_read(ssl, buf, sizeof(buf));
+				printf("Server otrzymal: \"%s\"\n", buf);
+				memset(buf, 0,  sizeof(buf));
+				for(int i=0; i<1; ++i)
+					SSL_write(ssl, "Invalid Message", strlen("Invalid Message"));
+			}
+        } while (0);
+        SSL_free(ssl);
         close(msgsock);
     } while(1);
 }
@@ -136,17 +117,19 @@ int tcp_server(char const *server_name, int server_port,
   	printf("Starting tcp server on port %d\n", server_port);
 	int sockfd;
 	SSL_CTX *ctx;
+	SSL *ssl;
 
     init_openssl();
-    ctx = create_context();
+    ctx = create_context(SERVER_CONTEXT);
 
     configure_context(ctx, pem_cert, pem_key);
 
 	sockfd = create_server(server_name, server_port);
 
-	server_loop(sockfd);
+	server_loop(sockfd, ctx, ssl);
 
 	close(sockfd);
+    SSL_CTX_free(ctx);
 }
 
 void usage(char const *name) {
