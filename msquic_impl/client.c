@@ -5,6 +5,7 @@
 
 
 typedef struct {
+    FILE* log;
     const char* address;
     unsigned short port;
     int scenario;
@@ -98,16 +99,34 @@ static QUIC_STATUS loadConfiguration(MsQuicClientContext* ctx, int argc, char* a
     };
 
     if(QUIC_FAILED(status = ctx->msQuic->ConfigurationOpen(ctx->registration, &ctx->alpn, 1, &settings, sizeof(settings), (void*)ctx, &ctx->configuration))) {
-        fprintf(stderr, "ConfigurationOpen failed - 0x%x\n", status);
+        fprintf(ctx->log, "ConfigurationOpen failed - 0x%x\n", status);
         return status;
     }
 
     if(QUIC_FAILED(status = ctx->msQuic->ConfigurationLoadCredential(ctx->configuration, &cred))) {
-        fprintf(stderr, "ConfigurationLoadCredential failed - 0x%x\n", status);
+        fprintf(ctx->log, "ConfigurationLoadCredential failed - 0x%x\n", status);
         return status;
     }
 
     return QUIC_STATUS_SUCCESS;
+}
+
+
+static FILE* openLogFile(void) {
+    const int logFilePathSize = strlen("logs/client..log") + 12;
+    char* logFilePath = malloc(logFilePathSize);
+    bzero(logFilePath, logFilePathSize);
+    sprintf(logFilePath, "logs/client.%d.log", getpid());
+    FILE* logFile = fopen(logFilePath, "w");
+
+    if(logFile == NULL) {
+        fprintf(stderr, "could not open log file: %s\n", logFilePath);
+        free(logFilePath);
+        return NULL;
+    }
+
+    free(logFilePath);
+    return logFile;
 }
 
 
@@ -126,7 +145,7 @@ static QUIC_STATUS streamCallback(HQUIC stream, MsQuicClientContext* ctx, QUIC_S
         break;
 
     case QUIC_STREAM_EVENT_SHUTDOWN_COMPLETE:
-        printf("Total bytes received: %u\n", ctx->totalReceived);
+        fprintf(ctx->log, "Total bytes received: %u\n", ctx->totalReceived);
         ctx->msQuic->StreamClose(stream);
         break;
     
@@ -143,12 +162,12 @@ static QUIC_STATUS sendRequest(MsQuicClientContext* ctx, HQUIC connection) {
     HQUIC stream = NULL;
 
     if(QUIC_FAILED(status = ctx->msQuic->StreamOpen(connection, QUIC_STREAM_OPEN_FLAG_NONE, (void*)streamCallback, ctx, &stream))) {
-        printf("StreamOpen failed - 0x%x\n", status);
+        fprintf(ctx->log, "StreamOpen failed - 0x%x\n", status);
         return status;
     }
 
     if(QUIC_FAILED(status = ctx->msQuic->StreamStart(stream, QUIC_STREAM_START_FLAG_NONE))) {
-        printf("StreamStart failed - 0x%x\n", status);
+        fprintf(ctx->log, "StreamStart failed - 0x%x\n", status);
         ctx->msQuic->StreamClose(stream);
         return status;
     }
@@ -159,7 +178,7 @@ static QUIC_STATUS sendRequest(MsQuicClientContext* ctx, HQUIC connection) {
     memcpy(buffer->Buffer, &ctx->scenario, sizeof(ctx->scenario));
 
     if(QUIC_FAILED(status = ctx->msQuic->StreamSend(stream, buffer, 1, QUIC_SEND_FLAG_FIN, buffer))) {
-        printf("StreamSend failed - 0x%x\n", status);
+        fprintf(ctx->log, "StreamSend failed - 0x%x\n", status);
         free(buffer);
         return status;
     }
@@ -194,7 +213,7 @@ static void sendRequestsAsync(HQUIC connection, MsQuicClientContext* ctx) {
 static QUIC_STATUS connectionCallback(HQUIC connection, MsQuicClientContext* ctx, QUIC_CONNECTION_EVENT* event) {
     switch(event->Type) {
     case QUIC_CONNECTION_EVENT_CONNECTED:
-        printf("[connection] Connected to %s:%d\n", ctx->address, ctx->port);
+        fprintf(ctx->log, "Connected to %s:%d\n", ctx->address, ctx->port);
         ctx->totalReceived = 0;
         sendRequestsAsync(connection, ctx);
         break;
@@ -223,14 +242,14 @@ static QUIC_STATUS runMsQuicClient(MsQuicClientContext* ctx) {
     HQUIC connection = NULL;
 
     if(QUIC_FAILED(status = ctx->msQuic->ConnectionOpen(ctx->registration, (void*)connectionCallback, ctx, &connection))) {
-        fprintf(stderr, "ConnectionOpen failed - 0x%x\n", status);
+        fprintf(ctx->log, "ConnectionOpen failed - 0x%x\n", status);
         return status;
     }
 
-    printf("Connecting to %s:%d\n", ctx->address, ctx->port);
+    fprintf(ctx->log, "Connecting to %s:%d\n", ctx->address, ctx->port);
 
     if(QUIC_FAILED(status = ctx->msQuic->ConnectionStart(connection, ctx->configuration, QUIC_ADDRESS_FAMILY_UNSPEC, ctx->address, ctx->port))) {
-        printf("ConnectionStart failed - 0x%x\n", status);
+        fprintf(ctx->log, "ConnectionStart failed - 0x%x\n", status);
         ctx->msQuic->ConnectionClose(connection);
         return status;
     }
@@ -242,24 +261,31 @@ static QUIC_STATUS runMsQuicClient(MsQuicClientContext* ctx) {
 int main(int argc, char* argv[]) {
     MsQuicClientContext ctx;
     QUIC_STATUS status = QUIC_STATUS_SUCCESS;
+
+    if((ctx.log = openLogFile()) == NULL) {
+        return 1;
+    }
     
     if(QUIC_FAILED(status = initMsQuic(&ctx))) {
-        fprintf(stderr, "initMsQuic failed - 0x%x\n", status);
+        fprintf(ctx.log, "initMsQuic failed - 0x%x\n", status);
         deinitMsQuic(&ctx);
+        fclose(ctx.log);
         return (int)status;
     }
 
     if(QUIC_FAILED(status = loadConfiguration(&ctx, argc, argv))) {
         deinitMsQuic(&ctx);
+        fclose(ctx.log);
         return (int)status;
     }
 
     srand(getpid());
     const int delay = rand() % (60 / ctx.nbStreams);
-    printf("Delay %i s...\n", delay);
+    fprintf(ctx.log, "Delay %i s...\n", delay);
     sleep(delay);
 
     status = runMsQuicClient(&ctx);
     deinitMsQuic(&ctx);
+    fclose(ctx.log);
     return (int)status;
 }

@@ -6,6 +6,7 @@
 
 
 typedef struct {
+    FILE* log;
     unsigned short port;
     const QUIC_API_TABLE* msQuic;
     QUIC_REGISTRATION_CONFIG regConfig;
@@ -96,12 +97,12 @@ static QUIC_STATUS loadConfiguration(MsQuicServerContext* ctx, int argc, char* a
     };
     
     if(QUIC_FAILED(status = ctx->msQuic->ConfigurationOpen(ctx->registration, &ctx->alpn, 1, &settings, sizeof(settings), NULL, &ctx->configuration))) {
-        fprintf(stderr, "ConfigurationOpen failed - 0x%x\n", status);
+        fprintf(ctx->log, "ConfigurationOpen failed - 0x%x\n", status);
         return status;
     }
 
     if(QUIC_FAILED(status = ctx->msQuic->ConfigurationLoadCredential(ctx->configuration, &cred))) {
-        fprintf(stderr, "ConfigurationLoadCredential failed - 0x%x\n", status);
+        fprintf(ctx->log, "ConfigurationLoadCredential failed - 0x%x\n", status);
         return status;
     }
 
@@ -109,18 +110,36 @@ static QUIC_STATUS loadConfiguration(MsQuicServerContext* ctx, int argc, char* a
 }
 
 
+static FILE* openLogFile(void) {
+    const int logFilePathSize = strlen("logs/server..log") + 12;
+    char* logFilePath = malloc(logFilePathSize);
+    bzero(logFilePath, logFilePathSize);
+    sprintf(logFilePath, "logs/server.%d.log", getpid());
+    FILE* logFile = fopen(logFilePath, "w");
+
+    if(logFile == NULL) {
+        fprintf(stderr, "could not open log file: %s\n", logFilePath);
+        free(logFilePath);
+        return NULL;
+    }
+
+    free(logFilePath);
+    return logFile;
+}
+
+
 static QUIC_STATUS handleRequest(HQUIC stream, MsQuicServerContext* ctx, QUIC_STREAM_EVENT* event) {
     QUIC_STATUS status;
 
     if(event->RECEIVE.BufferCount != 1 || event->RECEIVE.Buffers[0].Length < 4) {
-        fprintf(stderr, "Malformed request\n");
+        fprintf(ctx->log, "Malformed request\n");
         return QUIC_STATUS_PROTOCOL_ERROR;
     }
 
     const int scenario = *(int*)event->RECEIVE.Buffers[0].Buffer;
     
     if(scenario < 1 || 4 < scenario) {
-        fprintf(stderr, "Unknown scenario %d\n", scenario);
+        fprintf(ctx->log, "Unknown scenario %d\n", scenario);
         return QUIC_STATUS_PROTOCOL_ERROR;
     }
     
@@ -134,12 +153,12 @@ static QUIC_STATUS handleRequest(HQUIC stream, MsQuicServerContext* ctx, QUIC_ST
     memset(buffer->Buffer, 0xff, packetSize);
 
     if(QUIC_FAILED(status = ctx->msQuic->StreamSend(stream, buffer, 1, QUIC_SEND_FLAG_FIN, buffer))) {
-        printf("StreamSend failed - 0x%x\n", status);
+        fprintf(ctx->log, "StreamSend failed - 0x%x\n", status);
         free(buffer);
         return status;
     }
 
-    printf("Bytes sent: %u\n", packetSize);
+    fprintf(ctx->log, "Bytes sent: %u\n", packetSize);
     return QUIC_STATUS_SUCCESS;
 }
 
@@ -175,7 +194,7 @@ static QUIC_STATUS streamCallback(HQUIC stream, MsQuicServerContext* ctx, QUIC_S
 static QUIC_STATUS connectionCallback(HQUIC connection, MsQuicServerContext* ctx, QUIC_CONNECTION_EVENT* event) {
     switch(event->Type) {
     case QUIC_CONNECTION_EVENT_CONNECTED:
-        printf("[connection][%p] Connected\n", connection);
+        fprintf(ctx->log, "[connection][%p] Connected\n", connection);
         break;
 
     case QUIC_CONNECTION_EVENT_SHUTDOWN_INITIATED_BY_TRANSPORT:
@@ -184,7 +203,7 @@ static QUIC_STATUS connectionCallback(HQUIC connection, MsQuicServerContext* ctx
         break;
 
     case QUIC_CONNECTION_EVENT_SHUTDOWN_COMPLETE:
-        printf("[connection][%p] Disconnected\n", connection);
+        fprintf(ctx->log, "[connection][%p] Disconnected\n", connection);
         ctx->msQuic->ConnectionClose(connection);
         break;
 
@@ -226,17 +245,17 @@ static QUIC_STATUS runMsQuicServer(MsQuicServerContext* ctx) {
     QuicAddrSetPort(&address, ctx->port);
 
     if(QUIC_FAILED(status = ctx->msQuic->ListenerOpen(ctx->registration, (void*)listenerCallback, (void*)ctx, &listener))) {
-        fprintf(stderr, "ListenerOpen failed - 0x%x\n", status);
+        fprintf(ctx->log, "ListenerOpen failed - 0x%x\n", status);
         return status;
     }
 
     if(QUIC_FAILED(status = ctx->msQuic->ListenerStart(listener, &ctx->alpn, 1, &address))) {
-        printf("ListenerStart failed - 0x%x\n", status);
+        fprintf(ctx->log, "ListenerStart failed - 0x%x\n", status);
         ctx->msQuic->ListenerClose(listener);
         return status;
     }
 
-    printf("MsQuic server is listening on port %d...\n", ctx->port);
+    fprintf(ctx->log, "MsQuic server is listening on port %d...\n", ctx->port);
     getchar();
 
     ctx->msQuic->ListenerClose(listener);
@@ -247,19 +266,26 @@ static QUIC_STATUS runMsQuicServer(MsQuicServerContext* ctx) {
 int main(int argc, char* argv[]) {
     MsQuicServerContext ctx;
     QUIC_STATUS status = QUIC_STATUS_SUCCESS;
+
+    if((ctx.log = openLogFile()) == NULL) {
+        return 1;
+    }
     
     if(QUIC_FAILED(status = initMsQuic(&ctx))) {
-        fprintf(stderr, "initMsQuic failed - 0x%x\n", status);
+        fprintf(ctx.log, "initMsQuic failed - 0x%x\n", status);
         deinitMsQuic(&ctx);
+        fclose(ctx.log);
         return (int)status;
     }
 
     if(QUIC_FAILED(status = loadConfiguration(&ctx, argc, argv))) {
         deinitMsQuic(&ctx);
+        fclose(ctx.log);
         return (int)status;
     }
 
     status = runMsQuicServer(&ctx);
     deinitMsQuic(&ctx);
+    fclose(ctx.log);
     return (int)status;
 }
