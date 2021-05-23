@@ -1,5 +1,5 @@
 [submodule "quic/msquic"]
-	path = quic/msquic
+	path = msquic_impl/msquic
 	url = https://github.com/microsoft/msquic
 [submodule "quic/mvfst"]
 	path = quic/mvfst
