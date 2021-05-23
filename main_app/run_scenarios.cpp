@@ -2,7 +2,8 @@
 #include "utils.hpp"
 
 const char *CERT_DEFAULT = "cert.pem", *KEY_DEFAULT = "key.pem",
-           *LOGGER_IN = "/logger_in", *LOGGER_OUT = "/logger_out";
+           *LOGGER_IN = "/logger_in", *LOGGER_OUT = "/logger_out",
+           *PICO_PORT = "4433", *MS_PORT = "4434";
 const int MIN_DEFAULT = 1, MAX_DEFAULT = 101, STEP_DEFAULT = 10,
           REPEAT_DEFAULT = 1;
 
@@ -60,30 +61,34 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
 
   pid_t pico = _fork();
   if (pico == 0) {
-    _execl("build/picoquic_impl/pico_server", "4433", cert, key);
+    _execl("build/picoquic_impl/pico_server", PICO_PORT, cert, key);
   }
 
-  // start msquic server
+  pid_t msquic = _fork();
+  if (msquic == 0) {
+    _execl("build/msquic_impl/ms_server", MS_PORT, cert, key);
+  }
+
   // start mvfst server
   // start tcp server
 
   std::cout << "All servers started\n";
-  return {pico}; // return {pico, msquic, mvfst, tcp};
+  return {pico, msquic}; // return {pico, msquic, mvfst, tcp};
 }
 
-void picoquic(int clients, const Logger &logger) {
-  std::cout << "\t\tRunning picoquic clients\n";
+void runClients(int nbClients, const Logger &logger, const char *name,
+                const char *path, const char *port) {
+  std::cout << "\t\tRunning " << name << " clients\n";
 
   std::vector<const char *> scenarios{"1", "2", "3", "4"};
   for (const char *scenario : scenarios) {
     std::cout << "\t\t\tScenario " << scenario << "\n";
     std::vector<pid_t> clientPIDs;
 
-    for (int i = 0; i < clients; ++i) {
+    for (int i = 0; i < nbClients; ++i) {
       pid_t clientPID = _fork();
       if (clientPID == 0) {
-        _execl("build/picoquic_impl/pico_client", "localhost", "4433",
-               scenario);
+        _execl(path, "localhost", port, scenario);
       }
       clientPIDs.push_back(clientPID);
     }
@@ -92,12 +97,12 @@ void picoquic(int clients, const Logger &logger) {
       logger.logPID(pid);
     }
 
-    for (int i = 0; i < clients; ++i) {
+    for (int i = 0; i < nbClients; ++i) {
       _wait();
     }
-    logger.remove(clients);
+    logger.remove(nbClients);
   }
-  std::cout << "\t\tAll scenarios with picoquic finished\n";
+  std::cout << "\t\tAll scenarios with " << name << " finished\n";
 }
 
 int main(int argc, char **argv) {
@@ -120,9 +125,10 @@ int main(int argc, char **argv) {
     for (int j = min; j <= max; j += step) {
       std::cout << "\tStarting scenarios with " << j << " clients\n";
 
-      picoquic(j, logger);
+      runClients(j, logger, "picoquic", "build/picoquic_impl/pico_client",
+                 PICO_PORT);
 
-      // msquic(j);
+      runClients(j, logger, "msquic", "build/msquic_impl/ms_client", MS_PORT);
 
       // mvfst(j);
 
