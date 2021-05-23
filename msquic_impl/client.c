@@ -1,6 +1,7 @@
 #include "common.h"
 #include <stdio.h>
 #include <msquic.h>
+#include <pthread.h>
 
 
 typedef struct {
@@ -167,16 +168,35 @@ static QUIC_STATUS sendRequest(MsQuicClientContext* ctx, HQUIC connection) {
 }
 
 
+static void* sendRequestsAsyncWorker(void* args[]) {
+    HQUIC connection = args[0];
+    MsQuicClientContext* ctx = args[1];
+
+    for(unsigned int i = 0; i < ctx->nbStreams; i++) {
+        sendRequest(ctx, connection);
+        sleep(rand() % 6 + 1);
+    }
+
+    free(args);
+    return NULL;
+}
+
+
+static void sendRequestsAsync(HQUIC connection, MsQuicClientContext* ctx) {
+    pthread_t thread;
+    void** args = malloc(2 * sizeof(void*));
+    args[0] = connection;
+    args[1] = ctx;
+    pthread_create(&thread, NULL, (void*)sendRequestsAsyncWorker, args);
+}
+
+
 static QUIC_STATUS connectionCallback(HQUIC connection, MsQuicClientContext* ctx, QUIC_CONNECTION_EVENT* event) {
     switch(event->Type) {
     case QUIC_CONNECTION_EVENT_CONNECTED:
         printf("[connection] Connected to %s:%d\n", ctx->address, ctx->port);
         ctx->totalReceived = 0;
-
-        for(unsigned int i = 0; i < ctx->nbStreams; i++) {
-            sendRequest(ctx, connection);
-        }
-
+        sendRequestsAsync(connection, ctx);
         break;
     
     case QUIC_CONNECTION_EVENT_SHUTDOWN_INITIATED_BY_TRANSPORT:
@@ -233,6 +253,11 @@ int main(int argc, char* argv[]) {
         deinitMsQuic(&ctx);
         return (int)status;
     }
+
+    srand(getpid());
+    const int delay = rand() % (60 / ctx.nbStreams);
+    printf("Delay %i s...\n", delay);
+    sleep(delay);
 
     status = runMsQuicClient(&ctx);
     deinitMsQuic(&ctx);
