@@ -408,10 +408,8 @@ int main(int argc, char **argv) {
       break;
     }
 
-    if (nb_packets == 1) {
-      srand(getpid());
-      sleep(rand() % 60);
-    }
+    srand(getpid());
+    sleep(rand() % (60 / nb_packets));
 
     exit_code = picoquic_client(argv[1], server_port, nb_packets, packet_size);
     fclose(log_file);
