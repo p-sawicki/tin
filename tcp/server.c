@@ -81,11 +81,17 @@ void print_error_string(unsigned long err, const char* const label)
     else
         fprintf(stderr, "%s failed: %lu (0x%lx)\n", label, err, err);
 }
+#include <stdint.h>
 
 int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
 	int msgsock, rval;
-	char buf[100];
+	uint8_t byte;
+	int nb_packet;
 	unsigned long ssl_err = 0;
+	uint32_t tmp,n;
+	int packet_size;
+	char buffer[SEGMENT_SIZE];
+	char *temp;
 	SSL *ssl;
 	do {
         msgsock = accept(sockfd,(struct sockaddr *) 0,(int *) 0);
@@ -94,17 +100,23 @@ int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
         else do {
 			ssl = SSL_new(ctx);
         	SSL_set_fd(ssl, msgsock);
-			memset(buf, 0, sizeof buf);
 			if (SSL_accept(ssl) <= 0) {
 				ssl_err = SSL_get_error(ssl, -1);
-				print_error_string(ssl_err, "Problem pomcy");
+				print_error_string(ssl_err, "Problem");
             	ERR_print_errors_fp(stderr);
         	} else {
-				SSL_read(ssl, buf, sizeof(buf));
-				printf("Server otrzymal: \"%s\"\n", buf);
-				memset(buf, 0,  sizeof(buf));
-				for(int i=0; i<1; ++i)
-					SSL_write(ssl, "Invalid Message", strlen("Invalid Message"));
+				temp='1';
+				SSL_read(ssl, buffer, sizeof(char)*3);
+				temp = strtok(buffer, ",");
+				packet_size = atoi(temp);
+				temp = strtok(NULL, ",");
+				nb_packet = atoi(temp);
+				for(int i=0; i<nb_packet; ++i){
+					for(int j=0; SEGMENT_SIZE * j < packet_sizes[packet_size] ; ++j ) {
+						sprintf(buffer, "nb: %d", j * SEGMENT_SIZE);
+						SSL_write(ssl, buffer, sizeof(buffer));
+					}
+				}
 			}
         } while (0);
         SSL_free(ssl);
@@ -134,7 +146,7 @@ int tcp_server(int server_port,
 
 void usage(char const *name) {
   fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "    %s ip_addr port cert_file private_key_file\n", name);
+  fprintf(stderr, "    %s port cert_file private_key_file\n", name);
   exit(1);
 }
 

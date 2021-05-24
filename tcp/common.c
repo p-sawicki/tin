@@ -1,5 +1,7 @@
 #include "common.h"
 
+const size_t packet_sizes[] = {100, 10485760, 1073741824};
+
 SSL_CTX *create_context(enum contex_type type)
 {
     const SSL_METHOD *method;
