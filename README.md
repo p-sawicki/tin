@@ -12,10 +12,6 @@ git clone https://github.com/p-sawicki/tin.git --recursive
 sudo apt-get update
 sudo apt-get install libssl-dev cmake
 pip3 install argparse ipcqueue
-
-cd tin/picoquic_impl/picotls
-cmake -B .
-cmake --build .
 ```
 
 ## Build configuration
