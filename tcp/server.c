@@ -33,7 +33,7 @@ void func(int sockfd)
 	// write(sockfd, buff, sizeof(buff));
 }
 
-int create_server(char const *server_name, int server_port) {
+int create_server(int server_port) {
 	int sockfd, len;
 	struct sockaddr_in servaddr;
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -112,7 +112,7 @@ int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
     } while(1);
 }
 
-int tcp_server(char const *server_name, int server_port,
+int tcp_server(int server_port,
 			   const char *pem_cert, const char *pem_key) {
   	printf("Starting tcp server on port %d\n", server_port);
 	int sockfd;
@@ -124,7 +124,7 @@ int tcp_server(char const *server_name, int server_port,
 
     configure_context(ctx, pem_cert, pem_key);
 
-	sockfd = create_server(server_name, server_port);
+	sockfd = create_server(server_port);
 
 	server_loop(sockfd, ctx, ssl);
 
@@ -141,11 +141,11 @@ void usage(char const *name) {
 int main(int argc, char **argv) {
 	int exit_code = 0;
 
-	if (argc < 5) {
+	if (argc < 4) {
 		usage(argv[0]);
 	} else {
-		int server_port = atoi(argv[2]);
-		exit_code = tcp_server(argv[1], server_port, argv[3], argv[4]);
+		int server_port = atoi(argv[1]);
+		exit_code = tcp_server(server_port, argv[2], argv[3]);
 	}
 
   	exit(exit_code);
