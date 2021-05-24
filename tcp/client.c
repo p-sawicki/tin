@@ -1,28 +1,19 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include "common.h"
-#define MAX 80
-#define PORT 8080
-#define SA struct sockaddr
-
-void func(int sockfd) {
-  char buff[MAX] = "Czesc";
-  printf("Send '%s' to server\n", buff);
-  write(sockfd, buff, sizeof(buff));
-  bzero(buff, sizeof(buff));
-}
 
 int create_connection(char const *server_name, int server_port) {
 	int sockfd;
   struct sockaddr_in servaddr;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    printf("Staruje klient na port %d i ip %s\n", server_port, server_name);
+  printf("Staruje klient na port %d i ip %s\n", server_port, server_name);
 	if (sockfd == -1) {
 		printf("socket creation failed...\n");
 		exit(0);
@@ -31,10 +22,10 @@ int create_connection(char const *server_name, int server_port) {
 		printf("Socket successfully created..\n");
 
   servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	servaddr.sin_addr.s_addr = inet_addr(server_name);
 	servaddr.sin_port = htons(server_port);
 
-	if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
+	if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) != 0) {
 		printf("connection with the server failed...\n");
 		exit(0);
 	}
@@ -61,19 +52,21 @@ void show_certs(SSL* ssl)
       printf("Info: No client certificates configured.\n");
 }
 
-int client_loop(SSL *ssl){
-  char buf[1024];
+int client_loop(SSL *ssl, int nb_packets, enum packet_size_t packet_size){
+  uint8_t byte;
   int bytes;
+  char buffer[SEGMENT_SIZE];
+  sprintf(buffer, "%d,%d", (int) packet_size, nb_packets);
 
-  SSL_write(ssl, "Case 3", strlen("Case 3"));
+  SSL_write(ssl, buffer, strlen(buffer));
 
-  while (bytes = SSL_read(ssl, buf, sizeof(buf))) {
-    printf("Received: \"%s\"\n", buf);
-    bzero(buf, sizeof(buf));
+  while (bytes = SSL_read(ssl, buffer, sizeof(buffer))) {
+    printf("Received: %s\n", buffer);
   }
 }
 
-int tcp_client(char const *server_name, int server_port) {
+int tcp_client(char const *server_name, int server_port,
+               int nb_packets, enum packet_size_t packet_size) {
   printf("Starting tcp client on port %d\n", server_port);
   SSL_CTX *ctx;
   SSL *ssl;
@@ -89,7 +82,7 @@ int tcp_client(char const *server_name, int server_port) {
       ERR_print_errors_fp(stderr);
   else {
     show_certs(ssl);
-    client_loop(ssl);
+    client_loop(ssl, nb_packets, packet_size);
     SSL_free(ssl);
   }
 
@@ -103,8 +96,6 @@ void usage(char const *name) {
   fprintf(stderr, "    %s server_name port scenario\n", name);
   exit(1);
 }
-
-enum packet_size_t { PACKET_SMALL, PACKET_MED, PACKET_LARGE };
 
 int main(int argc, char **argv) {
 
@@ -137,6 +128,6 @@ int main(int argc, char **argv) {
       break;
     }
 
-    exit_code = tcp_client(argv[1], server_port);
+    exit_code = tcp_client(argv[1], server_port, nb_packets, packet_size);
   }
 }
