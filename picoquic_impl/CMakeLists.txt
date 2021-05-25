@@ -2,7 +2,7 @@ add_subdirectory(picotls)
 
 cmake_host_system_information(RESULT core_count QUERY NUMBER_OF_LOGICAL_CORES)
 execute_process(
-  COMMAND cmake --build . -j${core_count}
+  COMMAND cmake --build . -- -j${core_count}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/picotls
   RESULT_VARIABLE result
 )
