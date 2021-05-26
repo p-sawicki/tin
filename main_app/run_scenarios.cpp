@@ -110,7 +110,7 @@ void runClients(int nbClients, const Logger &logger, const char *name,
   std::cout << "\t\tAll scenarios with " << name << " finished\n";
 }
 
-void tcp(int clients) {
+void tcp(int clients, const Logger &logger) {
   std::cout << "\t\tRunning tcp clients\n";
   clients = 1;
   std::vector<const char *> scenarios{"1", "2", "3", "4"};
@@ -121,13 +121,19 @@ void tcp(int clients) {
     for (int i = 0; i < clients; ++i) {
       pid_t clientPID = _fork();
       if (clientPID == 0) {
-        _execl("build/tcp/tcp_client", "localhost", "7000");
+        _execl("build/tcp/tcp_client", "localhost", "7000", scenario);
       }
       clientPIDs.push_back(clientPID);
     }
+
+    for (pid_t pid : clientPIDs) {
+      logger.logPID(pid);
+    }
+
     for (int i = 0; i < clients; ++i) {
       _wait();
     }
+    logger.remove(clients);
   }
   std::cout << "\t\tAll scenarios with tcp finished\n";
 }
@@ -139,12 +145,12 @@ int main(int argc, char **argv) {
 
   parseArgs(argc, argv, cert, key, min, max, step, repeat);
 
-  // Logger logger(LOGGER_IN, LOGGER_OUT);
+  Logger logger(LOGGER_IN, LOGGER_OUT);
 
   auto serverPIDs = startServers(cert, key);
-  // for (pid_t pid : serverPIDs) {
-  // logger.logPID(pid);
-  // }
+  for (pid_t pid : serverPIDs) {
+    logger.logPID(pid);
+  }
   for (int i = 0; i < repeat; ++i) {
     std::cout << "Run #" << i + 1 << "\n";
 
@@ -158,7 +164,7 @@ int main(int argc, char **argv) {
 
       // mvfst(j);
 
-      tcp(j);
+      tcp(j, logger);
     }
   }
 
