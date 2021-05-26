@@ -42,3 +42,16 @@ void cleanup_openssl()
 {
     EVP_cleanup();
 }
+
+FILE *open_log() {
+  const char *pid = malloc(11);
+  sprintf(pid, "%d", getpid());
+
+  const char *log_file_path =
+      malloc(strlen(TCP_CLIENT_LOG_DIR) + strlen(pid) + 2);
+  strcpy(log_file_path, TCP_CLIENT_LOG_DIR);
+  strcat(log_file_path, "/");
+  strcat(log_file_path, pid);
+
+  return fopen(log_file_path, "w");
+}
