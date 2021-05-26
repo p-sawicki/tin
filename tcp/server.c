@@ -1,8 +1,6 @@
 #include <stdint.h>
 #include <signal.h>
 #include "common.h"
-#define MAX 80
-#define PORT 8080
 #define SA struct sockaddr
 
 FILE *log_file;
@@ -62,11 +60,11 @@ int create_server(int server_port) {
 
 void print_error_string(unsigned long err, const char* const label)
 {
-    const char* const str = ERR_reason_error_string(err);
-    if(str)
-      fprintf(log_file, "%s\n", str);
-    else
-      fprintf(log_file, "%s failed: %lu (0x%lx)\n", label, err, err);
+  const char* const str = ERR_reason_error_string(err);
+  if(str)
+    fprintf(log_file, "%s\n", str);
+  else
+    fprintf(log_file, "%s failed: %lu (0x%lx)\n", label, err, err);
 }
 
 int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
@@ -93,7 +91,6 @@ int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
 				print_error_string(ssl_err, "Problem");
         ERR_print_errors_fp(log_file);
       } else {
-				temp='1';
 				SSL_read(ssl, buffer, sizeof(char)*3);
 				temp = strtok(buffer, ",");
 				packet_size = atoi(temp);
