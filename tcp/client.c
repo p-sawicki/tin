@@ -8,25 +8,27 @@
 #include <openssl/err.h>
 #include "common.h"
 
+FILE *log_file;
+
 int create_connection(char const *server_name, int server_port) {
 	int sockfd;
   struct sockaddr_in servaddr;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  printf("Staruje klient na port %d i ip %s\n", server_port, server_name);
+  fprintf(log_file, "Staruje klient na port %d i ip %s\n", server_port, server_name);
 	if (sockfd == -1) {
-		printf("socket creation failed...\n");
+		fprintf(log_file, "socket creation failed...\n");
 		exit(0);
 	}
 	else
-		printf("Socket successfully created..\n");
+		fprintf(log_file, "Socket successfully created..\n");
 
   servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr(server_name);
 	servaddr.sin_port = htons(server_port);
 
 	if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) != 0) {
-		printf("connection with the server failed...\n");
+		fprintf(log_file, "connection with the server failed...\n");
 		exit(0);
 	}
 	return sockfd;
@@ -37,19 +39,18 @@ void show_certs(SSL* ssl)
   X509 *cert;
   char *line;
   cert = SSL_get_peer_certificate(ssl);
-  if ( cert != NULL )
-  {
-      printf("Server certificates:\n");
-      line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-      printf("Subject: %s\n", line);
-      free(line);
-      line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-      printf("Issuer: %s\n", line);
-      free(line);
-      X509_free(cert);
+  if ( cert != NULL ) {
+    fprintf(log_file, "Server certificates:\n");
+    line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+    fprintf(log_file, "Subject: %s\n", line);
+    free(line);
+    line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+    fprintf(log_file, "Issuer: %s\n", line);
+    free(line);
+    X509_free(cert);
   }
   else
-      printf("Info: No client certificates configured.\n");
+    fprintf(log_file, "Info: No client certificates configured.\n");
 }
 
 int client_loop(SSL *ssl, int nb_packets, enum packet_size_t packet_size){
@@ -61,13 +62,13 @@ int client_loop(SSL *ssl, int nb_packets, enum packet_size_t packet_size){
   SSL_write(ssl, buffer, strlen(buffer));
 
   while (bytes = SSL_read(ssl, buffer, sizeof(buffer))) {
-    printf("Received: %s\n", buffer);
+    fprintf(log_file, "Received: %s\n", buffer);
   }
 }
 
 int tcp_client(char const *server_name, int server_port,
                int nb_packets, enum packet_size_t packet_size) {
-  printf("Starting tcp client on port %d\n", server_port);
+  fprintf(log_file, "Starting tcp client on port %d\n", server_port);
   SSL_CTX *ctx;
   SSL *ssl;
 	int sockfd;
@@ -103,6 +104,7 @@ int main(int argc, char **argv) {
 	if (argc < 4) {
 		usage(argv[0]);
 	} else {
+    log_file = open_log();
 
     int server_port = atoi(argv[2]);
     int scenario = atoi(argv[3]);
@@ -129,5 +131,6 @@ int main(int argc, char **argv) {
     }
 
     exit_code = tcp_client(argv[1], server_port, nb_packets, packet_size);
+    fclose(log_file);
   }
 }
