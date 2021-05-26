@@ -13,6 +13,7 @@ FILE *log_file;
 int create_connection(char const *server_name, int server_port) {
 	int sockfd;
   struct sockaddr_in servaddr;
+  struct hostent *hp;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
   fprintf(log_file, "Staruje klient na port %d i ip %s\n", server_port, server_name);
@@ -23,8 +24,14 @@ int create_connection(char const *server_name, int server_port) {
 	else
 		fprintf(log_file, "Socket successfully created..\n");
 
+  hp = gethostbyname(server_name);
+  if (hp == (struct hostent *) 0) {
+    fprintf(log_file, "%s: unknown host\n", server_name);
+    exit(2);
+  }
+  memcpy((char *) &servaddr.sin_addr, (char *) hp->h_addr, hp->h_length);
+
   servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = inet_addr(server_name);
 	servaddr.sin_port = htons(server_port);
 
 	if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) != 0) {
