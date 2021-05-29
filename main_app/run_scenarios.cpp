@@ -3,7 +3,7 @@
 
 const char *CERT_DEFAULT = "cert.pem", *KEY_DEFAULT = "key.pem",
            *LOGGER_IN = "/logger_in", *LOGGER_OUT = "/logger_out",
-           *PICO_PORT = "4433", *MS_PORT = "4434";
+           *PICO_PORT = "4433", *MS_PORT = "4434", *TCP_PORT = "4435";
 const int MIN_DEFAULT = 1, MAX_DEFAULT = 101, STEP_DEFAULT = 10,
           REPEAT_DEFAULT = 1;
 
@@ -93,7 +93,7 @@ void runClients(int nbClients, const Logger &logger, const char *name,
     for (int i = 0; i < nbClients; ++i) {
       pid_t clientPID = _fork();
       if (clientPID == 0) {
-        _execl(path, "localhost", port, scenario);
+        _execl(path, "127.0.0.1", port, scenario);
       }
       clientPIDs.push_back(clientPID);
     }
@@ -108,34 +108,6 @@ void runClients(int nbClients, const Logger &logger, const char *name,
     logger.remove(nbClients);
   }
   std::cout << "\t\tAll scenarios with " << name << " finished\n";
-}
-
-void tcp(int clients, const Logger &logger) {
-  std::cout << "\t\tRunning tcp clients\n";
-  clients = 1;
-  std::vector<const char *> scenarios{"1", "2", "3", "4"};
-  for (const char *scenario : scenarios) {
-    std::cout << "\t\t\tScenario " << scenario << "\n";
-    std::vector<pid_t> clientPIDs;
-
-    for (int i = 0; i < clients; ++i) {
-      pid_t clientPID = _fork();
-      if (clientPID == 0) {
-        _execl("build/tcp/tcp_client", "localhost", "7000", scenario);
-      }
-      clientPIDs.push_back(clientPID);
-    }
-
-    for (pid_t pid : clientPIDs) {
-      logger.logPID(pid);
-    }
-
-    for (int i = 0; i < clients; ++i) {
-      _wait();
-    }
-    logger.remove(clients);
-  }
-  std::cout << "\t\tAll scenarios with tcp finished\n";
 }
 
 int main(int argc, char **argv) {
@@ -164,7 +136,7 @@ int main(int argc, char **argv) {
 
       // mvfst(j);
 
-      tcp(j, logger);
+      runClients(j, logger, "tcp", "build/tcp/tcp_client", TCP_PORT);
     }
   }
 

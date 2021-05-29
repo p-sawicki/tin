@@ -1,12 +1,17 @@
-#include <stdint.h>
-#include <signal.h>
 #include "common.h"
+#include <pthread.h>
+#include <signal.h>
+#include <stdint.h>
 #define SA struct sockaddr
 
 FILE *log_file;
+pthread_mutex_t mlock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t *lock_cs;
+static long *lock_count;
+static char *buffers[3];
 
-void configure_context(SSL_CTX *ctx, const char* pem_cert, const char* pem_key)
-{
+void configure_context(SSL_CTX *ctx, const char *pem_cert,
+                       const char *pem_key) {
   SSL_CTX_set_ecdh_auto(ctx, 1);
 
   if (SSL_CTX_use_certificate_file(ctx, pem_cert, SSL_FILETYPE_PEM) <= 0) {
@@ -14,117 +19,169 @@ void configure_context(SSL_CTX *ctx, const char* pem_cert, const char* pem_key)
     exit(EXIT_FAILURE);
   }
 
-  if (SSL_CTX_use_PrivateKey_file(ctx, pem_key, SSL_FILETYPE_PEM) <= 0 ) {
+  if (SSL_CTX_use_PrivateKey_file(ctx, pem_key, SSL_FILETYPE_PEM) <= 0) {
     ERR_print_errors_fp(log_file);
     exit(EXIT_FAILURE);
   }
 }
 
+pthread_t pthreads_thread_id(void) {
+  pthread_t ret;
+
+  ret = pthread_self();
+  return (ret);
+}
+
+void pthreads_locking_callback(int mode, int type, char *file, int line) {
+  if (mode & CRYPTO_LOCK) {
+    pthread_mutex_lock(&(lock_cs[type]));
+    lock_count[type]++;
+  } else {
+    pthread_mutex_unlock(&(lock_cs[type]));
+  }
+}
+
 int create_server(int server_port) {
-	int sockfd, len;
-	struct sockaddr_in servaddr;
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd == -1) {
-		fprintf(log_file, "Socket creation failed...\n");
-		exit(0);
-	}
+  int sockfd, len;
+  struct sockaddr_in servaddr;
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd == -1) {
+    fprintf(log_file, "Socket creation failed...\n");
+    exit(0);
+  }
 
   fprintf(log_file, "Socket successfully created..\n");
 
-	bzero(&servaddr, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(server_port);
+  bzero(&servaddr, sizeof(servaddr));
+  servaddr.sin_family = AF_INET;
+  servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  servaddr.sin_port = htons(server_port);
 
-	if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
-		fprintf(log_file, "socket bind failed...\n");
-		exit(0);
-	}
-	else
-		fprintf(log_file, "Socket successfully binded..\n");
+  if ((bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0) {
+    fprintf(log_file, "socket bind failed...\n");
+    exit(0);
+  } else
+    fprintf(log_file, "Socket successfully binded..\n");
 
-  len = sizeof( servaddr);
-  if (getsockname(sockfd,(struct sockaddr *) &servaddr, &len) == -1) {
+  len = sizeof(servaddr);
+  if (getsockname(sockfd, (struct sockaddr *)&servaddr, &len) == -1) {
     fprintf(log_file, "Getting socket name\n");
     exit(1);
   }
   fprintf(log_file, "Socket port #%d\n", ntohs(servaddr.sin_port));
-	if ((listen(sockfd, 5)) != 0) {
-		fprintf(log_file, "Listen failed...\n");
-		exit(0);
-	}
-	else
-		fprintf(log_file, "Server listening..\n");
-	return sockfd;
+  if ((listen(sockfd, SOMAXCONN)) != 0) {
+    fprintf(log_file, "Listen failed...\n");
+    exit(0);
+  } else
+    fprintf(log_file, "Server listening..\n");
+
+  lock_cs = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+  lock_count = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
+  for (int i = 0; i < CRYPTO_num_locks(); i++) {
+    lock_count[i] = 0;
+    pthread_mutex_init(&(lock_cs[i]), NULL);
+  }
+  CRYPTO_set_id_callback((unsigned long (*)())pthreads_thread_id);
+  CRYPTO_set_locking_callback((void (*)())pthreads_locking_callback);
+
+  return sockfd;
 }
 
-void print_error_string(unsigned long err, const char* const label)
-{
-  const char* const str = ERR_reason_error_string(err);
-  if(str)
+void print_error_string(unsigned long err, const char *const label) {
+  const char *const str = ERR_reason_error_string(err);
+  if (str)
     fprintf(log_file, "%s\n", str);
   else
     fprintf(log_file, "%s failed: %lu (0x%lx)\n", label, err, err);
 }
 
-int server_loop(int sockfd, SSL_CTX *ctx, SSL *ssl1) {
-	int msgsock, rval;
-	uint8_t byte;
-	int nb_packet;
-	unsigned long ssl_err = 0;
-	uint32_t tmp,n;
-	int packet_size;
-	char buffer[SEGMENT_SIZE];
-	char *temp;
-	SSL *ssl;
-  
-	do {
-    msgsock = accept(sockfd,(struct sockaddr *) 0,(int *) 0);
-    if (msgsock == -1 )
-      fprintf(log_file, "connection acceptin failed");
-    else do {
-			ssl = SSL_new(ctx);
-      SSL_set_fd(ssl, msgsock);
+typedef struct {
+  int msgsock;
+  SSL_CTX *ctx;
+} conn_params_t;
 
-			if (SSL_accept(ssl) <= 0) {
-				ssl_err = SSL_get_error(ssl, -1);
-				print_error_string(ssl_err, "Problem");
-        ERR_print_errors_fp(log_file);
-      } else {
-				SSL_read(ssl, buffer, sizeof(char)*3);
-				temp = strtok(buffer, ",");
-				packet_size = atoi(temp);
-				temp = strtok(NULL, ",");
-				nb_packet = atoi(temp);
-				for(int i=0; i<nb_packet; ++i){
-					for(int j=0; SEGMENT_SIZE * j < packet_sizes[packet_size] ; ++j ) {
-						sprintf(buffer, "nb: %d", j * SEGMENT_SIZE);
-						SSL_write(ssl, buffer, sizeof(buffer));
-					}
-				}
-			}
-    } while (0);
-    SSL_free(ssl);
-    close(msgsock);
-  } while(1);
+void *handle_connection(void *params) {
+  char *temp;
+  int packet_size;
+  unsigned long ssl_err = 0;
+  SSL *ssl;
+  conn_params_t *conn_params = (conn_params_t *)params;
+
+  if (conn_params->msgsock == -1)
+    fprintf(log_file, "connection acceptin failed");
+  else {
+    ssl = SSL_new(conn_params->ctx);
+    SSL_set_fd(ssl, conn_params->msgsock);
+
+    if (SSL_accept(ssl) <= 0) {
+      ssl_err = SSL_get_error(ssl, -1);
+      print_error_string(ssl_err, "Problem");
+      ERR_print_errors_fp(log_file);
+    } else {
+      SSL_read(ssl, &packet_size, sizeof(packet_size));
+
+      size_t to_write = packet_sizes[packet_size];
+      char *buffer = buffers[packet_size];
+
+      size_t written = 0;
+      sprintf(buffer, "nb: %lu", to_write);
+      for (; written < to_write;) {
+        written += SSL_write(ssl, buffer + written, to_write - written);
+      }
+    }
+  }
+
+  SSL_free(ssl);
+  close(conn_params->msgsock);
+  free(conn_params);
+  return 0;
 }
 
-int tcp_server(int server_port,
-			   const char *pem_cert, const char *pem_key) {
+int server_loop(int sockfd, SSL_CTX *ctx) {
+  int msgsock, err;
+
+  do {
+    msgsock = accept(sockfd, (struct sockaddr *)0, (int *)0);
+
+    conn_params_t *conn_params = (conn_params_t *)malloc(sizeof(conn_params_t));
+    conn_params->ctx = ctx;
+    conn_params->msgsock = msgsock;
+
+    pthread_t handle;
+    if ((err = pthread_create(&handle, NULL, handle_connection, conn_params)) !=
+        0) {
+      fprintf(log_file, "error creating thread: %s\n", strerror(err));
+    } else {
+      if ((err = pthread_detach(handle)) != 0) {
+        fprintf(log_file, "error detaching thread: %s\n", strerror(err));
+      }
+    }
+
+  } while (1);
+}
+
+int tcp_server(int server_port, const char *pem_cert, const char *pem_key) {
   fprintf(log_file, "Starting tcp server on port %d\n", server_port);
-	int sockfd;
-	SSL_CTX *ctx;
-	SSL *ssl;
+  int sockfd;
+  SSL_CTX *ctx;
 
   init_openssl();
   ctx = create_context(SERVER_CONTEXT);
   configure_context(ctx, pem_cert, pem_key);
 
-	sockfd = create_server(server_port);
+  sockfd = create_server(server_port);
 
-	server_loop(sockfd, ctx, ssl);
+  for (int i = 0; i < 3; ++i) {
+    buffers[i] = (char *)malloc(packet_sizes[i]);
+  }
 
-	close(sockfd);
+  server_loop(sockfd, ctx);
+
+  for (int i = 0; i < 3; ++i) {
+    free(buffers[i]);
+  }
+
+  close(sockfd);
   SSL_CTX_free(ctx);
 }
 
@@ -134,24 +191,23 @@ void usage(char const *name) {
   exit(1);
 }
 
-void cleanup(int a)
-{
+void cleanup(int a) {
   fclose(log_file);
   exit(0);
 }
 
 int main(int argc, char **argv) {
-	int exit_code = 0;
+  int exit_code = 0;
 
-	if (argc < 4) {
-		usage(argv[0]);
-	} else {
-		log_file = open_log();
+  if (argc < 4) {
+    usage(argv[0]);
+  } else {
+    log_file = open_log();
     signal(SIGINT, cleanup);
 
-		int server_port = atoi(argv[1]);
-		exit_code = tcp_server(server_port, argv[2], argv[3]);
-	}
+    int server_port = atoi(argv[1]);
+    exit_code = tcp_server(server_port, argv[2], argv[3]);
+  }
 
   exit(exit_code);
 }
