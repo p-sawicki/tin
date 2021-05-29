@@ -3,7 +3,13 @@ project(tin)
 
 set(CMAKE_CXX_STANDARD 17)
 
+include_directories(utils)
+add_subdirectory(utils)
+
 add_subdirectory(picoquic_impl)
 add_subdirectory(msquic_impl)
 add_subdirectory(tcp)
 add_subdirectory(main_app)
+
+enable_testing()
+add_subdirectory(tests)

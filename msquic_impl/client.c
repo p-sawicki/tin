@@ -1,8 +1,10 @@
 #include "common.h"
+#include "utils.h"
 #include <stdio.h>
 #include <msquic.h>
 #include <pthread.h>
 
+int ifDelay = 0;
 
 typedef struct {
     FILE* log;
@@ -112,24 +114,6 @@ static QUIC_STATUS loadConfiguration(MsQuicClientContext* ctx, int argc, char* a
 }
 
 
-static FILE* openLogFile(void) {
-    const int logFilePathSize = strlen("logs/client..log") + 12;
-    char* logFilePath = malloc(logFilePathSize);
-    bzero(logFilePath, logFilePathSize);
-    sprintf(logFilePath, "logs/client.%d.log", getpid());
-    FILE* logFile = fopen(logFilePath, "w");
-
-    if(logFile == NULL) {
-        fprintf(stderr, "could not open log file: %s\n", logFilePath);
-        free(logFilePath);
-        return NULL;
-    }
-
-    free(logFilePath);
-    return logFile;
-}
-
-
 static QUIC_STATUS streamCallback(HQUIC stream, MsQuicClientContext* ctx, QUIC_STREAM_EVENT* event) {
     switch(event->Type) {
     case QUIC_STREAM_EVENT_SEND_COMPLETE:
@@ -193,7 +177,9 @@ static void* sendRequestsAsyncWorker(void* args[]) {
 
     for(unsigned int i = 0; i < ctx->nbStreams; i++) {
         sendRequest(ctx, connection);
-        sleep(rand() % 6 + 1);
+        if (ifDelay) {
+            sleep(rand() % 6 + 1);
+        }
     }
 
     free(args);
@@ -262,7 +248,7 @@ int main(int argc, char* argv[]) {
     MsQuicClientContext ctx;
     QUIC_STATUS status = QUIC_STATUS_SUCCESS;
 
-    if((ctx.log = openLogFile()) == NULL) {
+    if((ctx.log = get_log(argc, argv)) == NULL) {
         return 1;
     }
     
@@ -279,10 +265,7 @@ int main(int argc, char* argv[]) {
         return (int)status;
     }
 
-    srand(getpid());
-    const int delay = rand() % (60 / ctx.nbStreams);
-    fprintf(ctx.log, "Delay %i s...\n", delay);
-    sleep(delay);
+    ifDelay = delay(argc, argv, ctx.nbStreams);
 
     status = runMsQuicClient(&ctx);
     deinitMsQuic(&ctx);

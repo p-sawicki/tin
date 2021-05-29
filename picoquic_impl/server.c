@@ -1,4 +1,5 @@
 #include "common.h"
+#include "utils.h"
 #include <autoqlog.h>
 #include <picoquic.h>
 #include <picoquic_packet_loop.h>
@@ -187,7 +188,6 @@ int picoquic_server(int server_port, const char *pem_cert,
                     const char *pem_key) {
   int ret = 0;
   picoquic_quic_t *quic = NULL;
-  char const *qlog_dir = PICOQUIC_SERVER_QLOG_DIR;
   uint64_t current_time = 0;
   ctx_t default_context = {0};
 
@@ -204,7 +204,7 @@ int picoquic_server(int server_port, const char *pem_cert,
   } else {
     picoquic_set_cookie_mode(quic, 2);
     picoquic_set_default_congestion_algorithm(quic, picoquic_bbr_algorithm);
-    picoquic_set_qlog(quic, qlog_dir);
+    picoquic_set_qlog(quic, NULL);
     picoquic_set_log_level(quic, 1);
     picoquic_set_key_log_file_from_env(quic);
   }
@@ -230,17 +230,13 @@ void usage(char const *name) {
 
 int main(int argc, char **argv) {
   int exit_code = 0;
-#ifdef _WINDOWS
-  WSADATA wsaData = {0};
-  (void)WSA_START(MAKEWORD(2, 2), &wsaData);
-#endif
 
   if (argc < 4) {
     usage(argv[0]);
   } else {
-    log_file = open_log();
+    log_file = get_log(argc, argv);
 
-    int server_port = get_port(argv[0], argv[1]);
+    int server_port = get_port(argv[1]);
     exit_code = picoquic_server(server_port, argv[2], argv[3]);
     fclose(log_file);
   }

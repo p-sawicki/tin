@@ -1,4 +1,5 @@
 #include "common.h"
+#include "utils.h"
 #include <netdb.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -9,6 +10,7 @@
 #include <sys/socket.h>
 
 FILE *log_file;
+int if_delay = 0;
 
 int create_connection(char const *server_name, int server_port) {
   int sockfd;
@@ -87,7 +89,9 @@ int client_loop(int nb_packets, enum packet_size_t packet_size,
 
       fprintf(log_file, "Received: %lu bytes\n", bytes_read);
 
-      sleep(6);
+      if (if_delay) {
+        sleep(6);
+      }
     }
     SSL_free(ssl);
   }
@@ -123,34 +127,16 @@ int main(int argc, char **argv) {
   if (argc < 4) {
     usage(argv[0]);
   } else {
-    log_file = open_log();
+    log_file = get_log(argc, argv);
 
     int server_port = atoi(argv[2]);
     int scenario = atoi(argv[3]);
     int nb_packets;
     enum packet_size_t packet_size;
 
-    switch (scenario) {
-    case 1:
-      packet_size = PACKET_SMALL;
-      nb_packets = 1;
-      break;
-    case 2:
-      packet_size = PACKET_LARGE;
-      nb_packets = 1;
-      break;
-    case 3:
-      packet_size = PACKET_SMALL;
-      nb_packets = 10;
-      break;
-    case 4:
-      packet_size = PACKET_MED;
-      nb_packets = 10;
-      break;
-    }
+    get_packet_info(scenario, &nb_packets, &packet_size);
 
-    srand(getpid());
-    sleep(rand() % (60 / nb_packets));
+    if_delay = delay(argc, argv, nb_packets);
 
     exit_code = tcp_client(argv[1], server_port, nb_packets, packet_size);
     fclose(log_file);

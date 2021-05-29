@@ -1,4 +1,5 @@
 #include "common.h"
+#include "utils.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,24 +108,6 @@ static QUIC_STATUS loadConfiguration(MsQuicServerContext* ctx, int argc, char* a
     }
 
     return QUIC_STATUS_SUCCESS;
-}
-
-
-static FILE* openLogFile(void) {
-    const int logFilePathSize = strlen("logs/server..log") + 12;
-    char* logFilePath = malloc(logFilePathSize);
-    bzero(logFilePath, logFilePathSize);
-    sprintf(logFilePath, "logs/server.%d.log", getpid());
-    FILE* logFile = fopen(logFilePath, "w");
-
-    if(logFile == NULL) {
-        fprintf(stderr, "could not open log file: %s\n", logFilePath);
-        free(logFilePath);
-        return NULL;
-    }
-
-    free(logFilePath);
-    return logFile;
 }
 
 
@@ -256,7 +239,7 @@ static QUIC_STATUS runMsQuicServer(MsQuicServerContext* ctx) {
     }
 
     fprintf(ctx->log, "MsQuic server is listening on port %d...\n", ctx->port);
-    getchar();
+    while (1);
 
     ctx->msQuic->ListenerClose(listener);
     return QUIC_STATUS_SUCCESS;
@@ -267,7 +250,7 @@ int main(int argc, char* argv[]) {
     MsQuicServerContext ctx;
     QUIC_STATUS status = QUIC_STATUS_SUCCESS;
 
-    if((ctx.log = openLogFile()) == NULL) {
+    if((ctx.log = get_log(argc, argv)) == NULL) {
         return 1;
     }
     

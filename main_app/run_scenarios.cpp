@@ -61,12 +61,12 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
 
   pid_t pico = _fork();
   if (pico == 0) {
-    _execl("build/picoquic_impl/pico_server", PICO_PORT, cert, key);
+    _execl("build/picoquic_impl/pico_server", PICO_PORT, cert, key, "--quiet");
   }
 
   pid_t msquic = _fork();
   if (msquic == 0) {
-    _execl("build/msquic_impl/ms_server", MS_PORT, cert, key);
+    _execl("build/msquic_impl/ms_server", MS_PORT, cert, key, "--quiet");
   }
 
   // start mvfst server
@@ -74,7 +74,7 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
   // start tcp server
   pid_t tcp = _fork();
   if (tcp == 0) {
-    _execl("build/tcp/tcp_server", "7000", cert, key);
+    _execl("build/tcp/tcp_server", TCP_PORT, cert, key, "--quiet");
   }
 
   std::cout << "All servers started\n";
@@ -93,7 +93,7 @@ void runClients(int nbClients, const Logger &logger, const char *name,
     for (int i = 0; i < nbClients; ++i) {
       pid_t clientPID = _fork();
       if (clientPID == 0) {
-        _execl(path, "127.0.0.1", port, scenario);
+        _execl(path, "127.0.0.1", port, scenario, "--quiet");
       }
       clientPIDs.push_back(clientPID);
     }
