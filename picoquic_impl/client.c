@@ -1,4 +1,5 @@
 #include "common.h"
+#include "utils.h"
 #include <autoqlog.h>
 #include <picoquic.h>
 #include <picoquic_packet_loop.h>
@@ -7,6 +8,7 @@
 #include <stdint.h>
 
 FILE *log_file;
+int if_delay = 0;
 
 typedef struct stream_ctx_t {
   struct stream_ctx_t *next_stream;
@@ -154,7 +156,7 @@ int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes,
           ret = picoquic_close(cnx, 0);
         }
 
-        if (client_ctx->nb_packets > 1) {
+        if (client_ctx->nb_packets > 1 && if_delay) {
           sleep(6);
         }
       }
@@ -262,10 +264,7 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
                     enum packet_size_t packet_size) {
   int ret = 0;
   struct sockaddr_storage server_address;
-  char const *sni = PICOQUIC_SNI,
-             *ticket_store_filename = PICOQUIC_CLIENT_TICKET_STORE,
-             *token_store_filename = PICOQUIC_CLIENT_TOKEN_STORE,
-             *qlog_dir = PICOQUIC_CLIENT_QLOG_DIR;
+  char const *sni = PICOQUIC_SNI;
   picoquic_quic_t *quic = NULL;
 
   ctx_t client_ctx = {0};
@@ -285,21 +284,15 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
 
   if (ret == 0) {
     quic = picoquic_create(1, NULL, NULL, NULL, PICOQUIC_ALPN, NULL, NULL, NULL,
-                           NULL, NULL, current_time, NULL,
-                           ticket_store_filename, NULL, 0);
+                           NULL, NULL, current_time, NULL, NULL, NULL, 0);
 
     if (quic == NULL) {
       fprintf(log_file, "Could not create quic context\n");
       ret = -1;
     } else {
-      if (picoquic_load_retry_tokens(quic, token_store_filename) != 0) {
-        fprintf(log_file, "No token file present. Will create one as <%s>.\n",
-                token_store_filename);
-      }
-
       picoquic_set_default_congestion_algorithm(quic, picoquic_bbr_algorithm);
       picoquic_set_key_log_file_from_env(quic);
-      picoquic_set_qlog(quic, qlog_dir);
+      picoquic_set_qlog(quic, NULL);
       picoquic_set_log_level(quic, 1);
     }
   }
@@ -350,15 +343,6 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
   report(&client_ctx);
 
   if (quic != NULL) {
-    if (picoquic_save_session_tickets(quic, ticket_store_filename) != 0) {
-      fprintf(log_file, "Could not store the saved session tickets.\n");
-    }
-
-    if (picoquic_save_retry_tokens(quic, token_store_filename) != 0) {
-      fprintf(log_file, "Could not save tokens to <%s>.\n",
-              token_store_filename);
-    }
-
     picoquic_free(quic);
   }
 
@@ -374,42 +358,20 @@ void usage(char const *name) {
 
 int main(int argc, char **argv) {
   int exit_code = 0;
-#ifdef _WINDOWS
-  WSADATA wsaData = {0};
-  (void)WSA_START(MAKEWORD(2, 2), &wsaData);
-#endif
 
   if (argc < 4) {
     usage(argv[0]);
   } else {
-    log_file = open_log();
+    log_file = get_log(argc, argv);
 
-    int server_port = get_port(argv[0], argv[2]);
+    int server_port = get_port(argv[2]);
     int scenario = atoi(argv[3]);
+
     int nb_packets;
     enum packet_size_t packet_size;
+    get_packet_info(scenario, &nb_packets, &packet_size);
 
-    switch (scenario) {
-    case 1:
-      packet_size = PACKET_SMALL;
-      nb_packets = 1;
-      break;
-    case 2:
-      packet_size = PACKET_LARGE;
-      nb_packets = 1;
-      break;
-    case 3:
-      packet_size = PACKET_SMALL;
-      nb_packets = 10;
-      break;
-    case 4:
-      packet_size = PACKET_MED;
-      nb_packets = 10;
-      break;
-    }
-
-    srand(getpid());
-    sleep(rand() % (60 / nb_packets));
+    if_delay = delay(argc, argv, nb_packets);
 
     exit_code = picoquic_client(argv[1], server_port, nb_packets, packet_size);
     fclose(log_file);

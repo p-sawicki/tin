@@ -1,13 +1,11 @@
 #include "common.h"
+#include "utils.h"
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #define SA struct sockaddr
 
 FILE *log_file;
-pthread_mutex_t mlock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t *lock_cs;
-static long *lock_count;
 static char *buffers[3];
 
 void configure_context(SSL_CTX *ctx, const char *pem_cert,
@@ -22,22 +20,6 @@ void configure_context(SSL_CTX *ctx, const char *pem_cert,
   if (SSL_CTX_use_PrivateKey_file(ctx, pem_key, SSL_FILETYPE_PEM) <= 0) {
     ERR_print_errors_fp(log_file);
     exit(EXIT_FAILURE);
-  }
-}
-
-pthread_t pthreads_thread_id(void) {
-  pthread_t ret;
-
-  ret = pthread_self();
-  return (ret);
-}
-
-void pthreads_locking_callback(int mode, int type, char *file, int line) {
-  if (mode & CRYPTO_LOCK) {
-    pthread_mutex_lock(&(lock_cs[type]));
-    lock_count[type]++;
-  } else {
-    pthread_mutex_unlock(&(lock_cs[type]));
   }
 }
 
@@ -74,15 +56,6 @@ int create_server(int server_port) {
     exit(0);
   } else
     fprintf(log_file, "Server listening..\n");
-
-  lock_cs = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
-  lock_count = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
-  for (int i = 0; i < CRYPTO_num_locks(); i++) {
-    lock_count[i] = 0;
-    pthread_mutex_init(&(lock_cs[i]), NULL);
-  }
-  CRYPTO_set_id_callback((unsigned long (*)())pthreads_thread_id);
-  CRYPTO_set_locking_callback((void (*)())pthreads_locking_callback);
 
   return sockfd;
 }
@@ -202,7 +175,7 @@ int main(int argc, char **argv) {
   if (argc < 4) {
     usage(argv[0]);
   } else {
-    log_file = open_log();
+    log_file = get_log(argc, argv);
     signal(SIGINT, cleanup);
 
     int server_port = atoi(argv[1]);

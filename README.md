@@ -1,3 +1,5 @@
+[![Tests](https://github.com/p-sawicki/tin/actions/workflows/tests.yml/badge.svg)](https://github.com/p-sawicki/tin/actions/workflows/tests.yml)
+
 # Configuration
 
 ## Download
