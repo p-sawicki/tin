@@ -31,7 +31,7 @@ int create_connection(char const *server_name, int server_port) {
     fprintf(log_file, "%s: unknown host\n", server_name);
     exit(2);
   }
-  memcpy((char *)&servaddr.sin_addr, (char *)hp->h_addr, hp->h_length);
+  memcpy((char *)&servaddr.sin_addr, (char *)hp->h_addr_list[0], hp->h_length);
 
   servaddr.sin_family = AF_INET;
   servaddr.sin_port = htons(server_port);
@@ -62,7 +62,6 @@ void show_certs(SSL *ssl) {
 
 int client_loop(int nb_packets, enum packet_size_t packet_size,
                 char const *server_name, int server_port, SSL_CTX *ctx) {
-  uint8_t byte;
   int bytes;
   SSL *ssl;
   int sockfd;
@@ -76,14 +75,15 @@ int client_loop(int nb_packets, enum packet_size_t packet_size,
     ssl = SSL_new(ctx);
     SSL_set_fd(ssl, sockfd);
 
-    if (SSL_connect(ssl) == -1)
+    if (SSL_connect(ssl) == -1) {
       ERR_print_errors_fp(stderr);
-    else {
+      return EXIT_FAILURE;
+    } else {
       show_certs(ssl);
       SSL_write(ssl, &packet_size, sizeof(packet_size));
 
-      while (bytes = SSL_read(ssl, in_buffer + bytes_read,
-                              packet_sizes[packet_size] - bytes_read)) {
+      while ((bytes = SSL_read(ssl, in_buffer + bytes_read,
+                               packet_sizes[packet_size] - bytes_read))) {
         bytes_read += bytes;
       }
 
@@ -94,25 +94,27 @@ int client_loop(int nb_packets, enum packet_size_t packet_size,
       }
     }
     SSL_free(ssl);
+    close(sockfd);
   }
 
-  close(sockfd);
   free(in_buffer);
+  return 0;
 }
 
 int tcp_client(char const *server_name, int server_port, int nb_packets,
                enum packet_size_t packet_size) {
   fprintf(log_file, "Starting tcp client on port %d\n", server_port);
   SSL_CTX *ctx;
-  SSL *ssl;
-  int sockfd;
+  int exit_code;
 
   init_openssl();
   ctx = create_context(CLIENT_CONTEXT);
 
-  client_loop(nb_packets, packet_size, server_name, server_port, ctx);
+  exit_code =
+      client_loop(nb_packets, packet_size, server_name, server_port, ctx);
 
   SSL_CTX_free(ctx);
+  return exit_code;
 }
 
 void usage(char const *name) {
@@ -141,4 +143,6 @@ int main(int argc, char **argv) {
     exit_code = tcp_client(argv[1], server_port, nb_packets, packet_size);
     fclose(log_file);
   }
+
+  return exit_code;
 }

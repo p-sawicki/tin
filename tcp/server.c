@@ -24,7 +24,8 @@ void configure_context(SSL_CTX *ctx, const char *pem_cert,
 }
 
 int create_server(int server_port) {
-  int sockfd, len;
+  int sockfd;
+  unsigned int len;
   struct sockaddr_in servaddr;
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd == -1) {
@@ -46,7 +47,8 @@ int create_server(int server_port) {
     fprintf(log_file, "Socket successfully binded..\n");
 
   len = sizeof(servaddr);
-  if (getsockname(sockfd, (struct sockaddr *)&servaddr, &len) == -1) {
+  if (getsockname(sockfd, (struct sockaddr *)&servaddr, (socklen_t *)&len) ==
+      -1) {
     fprintf(log_file, "Getting socket name\n");
     exit(1);
   }
@@ -74,7 +76,6 @@ typedef struct {
 } conn_params_t;
 
 void *handle_connection(void *params) {
-  char *temp;
   int packet_size;
   unsigned long ssl_err = 0;
   SSL *ssl;
@@ -101,10 +102,10 @@ void *handle_connection(void *params) {
       for (; written < to_write;) {
         written += SSL_write(ssl, buffer + written, to_write - written);
       }
+      SSL_free(ssl);
     }
   }
 
-  SSL_free(ssl);
   close(conn_params->msgsock);
   free(conn_params);
   return 0;
@@ -114,7 +115,7 @@ int server_loop(int sockfd, SSL_CTX *ctx) {
   int msgsock, err;
 
   do {
-    msgsock = accept(sockfd, (struct sockaddr *)0, (int *)0);
+    msgsock = accept(sockfd, (struct sockaddr *)0, (socklen_t *)0);
 
     conn_params_t *conn_params = (conn_params_t *)malloc(sizeof(conn_params_t));
     conn_params->ctx = ctx;
@@ -124,9 +125,11 @@ int server_loop(int sockfd, SSL_CTX *ctx) {
     if ((err = pthread_create(&handle, NULL, handle_connection, conn_params)) !=
         0) {
       fprintf(log_file, "error creating thread: %s\n", strerror(err));
+      return EXIT_FAILURE;
     } else {
       if ((err = pthread_detach(handle)) != 0) {
         fprintf(log_file, "error detaching thread: %s\n", strerror(err));
+        return EXIT_FAILURE;
       }
     }
 
@@ -156,6 +159,7 @@ int tcp_server(int server_port, const char *pem_cert, const char *pem_key) {
 
   close(sockfd);
   SSL_CTX_free(ctx);
+  return EXIT_FAILURE;
 }
 
 void usage(char const *name) {
