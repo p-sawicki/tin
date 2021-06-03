@@ -1,13 +1,11 @@
-cmake_host_system_information(RESULT core_count QUERY NUMBER_OF_LOGICAL_CORES)
 execute_process(
-  COMMAND cmake -B .
-  COMMAND cmake --build . -- -j${core_count}
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/picotls
-  RESULT_VARIABLE result
+  COMMAND ${CMAKE_COMMAND} 
+  -DDIR=${CMAKE_CURRENT_SOURCE_DIR}/picotls
+  -DC_COMPILER=${CMAKE_C_COMPILER}
+  -DCXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DGENERATOR=${CMAKE_GENERATOR}
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/build_picotls.cmake
 )
-if(result)
-  message(ERROR " Build error: ${result}")
-endif()
 
 add_subdirectory(picoquic)
 include_directories(picoquic/loglib picoquic/picoquic)
