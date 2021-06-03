@@ -20,14 +20,6 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Configure picotls
-      run: cmake -B . -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-      working-directory: ${{github.workspace}}/picoquic_impl/picotls
-      
-    - name: Build picotls
-      run: cmake --build . --config ${{env.BUILD_TYPE}}
-      working-directory: ${{github.workspace}}/picoquic_impl/picotls
-
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
@@ -39,4 +31,4 @@ jobs:
       working-directory: ${{github.workspace}}
 
     - name: Test
-      run: cd ${{github.workspace}}/build && ctest --extra-verbose --build-config ${{env.BUILD_TYPE}}
+      run: cd ${{github.workspace}}/build && ctest --extra-verbose --build-config ${{env.BUILD_TYPE}} --exclude-regex logger_test
