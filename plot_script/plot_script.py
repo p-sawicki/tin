@@ -22,22 +22,32 @@ def readFile(filename):
 
         for row in reader:
             time_t[-1].append(int(row[0]))
-            mem_usage[-1].append(int(row[1]))
+            mem_usage[-1].append(int(row[1])/1000000)
             cpu_usage[-1].append(float(row[2]))
 
 
-def plot(name, xlabel, ylabel, x, y):
+def plot(name, xlabel, ylabel, x, ys):
     """
     drawing and saving plot
     """
     act_time = datetime.now().strftime("%H:%M:%S")
 
+    averages = [numpy.average(v) for v in ys]
+    max_average = max(averages)
+    min_average = min(averages)
+    y = [numpy.average(v) for v in zip_longest(*ys, fillvalue=0)]
     average = numpy.average(y)
     std_deviation = numpy.std(y, ddof=1)
 
     plt.plot(x, y)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    plt.axhline(y=min_average, linestyle="--", linewidth=0.5, color="gray")
+    plt.text(0, min_average, 'min. średnia', fontsize=10, va='center')
+    plt.axhline(y=max_average, linestyle="--", linewidth=0.5, color="gray")
+    plt.text(0, max_average, 'maks. średnia', fontsize=10, va='center')
+    plt.axhline(y=average, linestyle="--", linewidth=0.5, color="gray")
+    plt.text(0, average, 'średnia', fontsize=10, va='center')
 
     plt.title(f'{name}\n'
               f'Średnia: {average:.2f} '
@@ -60,7 +70,5 @@ if __name__ == '__main__':
 
     time_t = max(time_t, key=len)
     time_t = [(t - time_t[0])/1000 for t in time_t]
-    mem_usage = [(sum(v)/len(v))/1000000 for v in zip_longest(*mem_usage, fillvalue=0)]
-    cpu_usage = [sum(v)/len(v) for v in zip_longest(*cpu_usage, fillvalue=0)]
     plot(f'{args.scenario}: średnie zużycie pamięci', 'czas [s]', 'zajętość pamięci [MB]', time_t, mem_usage)
     plot(f'{args.scenario}: średnie zużycie procesora', 'czas [s]', 'zużycie procesora [%]', time_t, cpu_usage)
