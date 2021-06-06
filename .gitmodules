@@ -5,8 +5,8 @@
 [submodule "msquic_impl/msquic"]
 	path = msquic_impl/msquic
 	url = https://github.com/microsoft/msquic
-[submodule "quic/mvfst"]
-	path = quic/mvfst
+[submodule "mvfst_impl/mvfst"]
+	path = mvfst_impl/mvfst
 	url = https://github.com/facebookincubator/mvfst
 [submodule "picoquic_impl/picotls"]
 	path = picoquic_impl/picotls
