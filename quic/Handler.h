@@ -1,17 +1,17 @@
 #pragma once
 
-#include <quic/api/QuicSocket.h>
 #include <folly/io/async/EventBase.h>
+#include <quic/api/QuicSocket.h>
 #include <quic/common/BufUtil.h>
 
 namespace quic {
 class EchoHandler : public quic::QuicSocket::ConnectionCallback,
                     public quic::QuicSocket::ReadCallback,
                     public quic::QuicSocket::WriteCallback {
- public:
+public:
   using StreamData = std::pair<BufQueue, bool>;
 
-  explicit EchoHandler(folly::EventBase* evbIn) : evb(evbIn) {}
+  explicit EchoHandler(folly::EventBase *evbIn) : evb(evbIn) {}
 
   void setQuicSocket(std::shared_ptr<quic::QuicSocket> socket) {
     sock = socket;
@@ -27,15 +27,12 @@ class EchoHandler : public quic::QuicSocket::ConnectionCallback,
     sock->setReadCallback(id, this);
   }
 
-  void onStopSending(
-      quic::StreamId id,
-      quic::ApplicationErrorCode error) noexcept override {
+  void onStopSending(quic::StreamId id,
+                     quic::ApplicationErrorCode error) noexcept override {
     LOG(INFO) << "Got StopSending stream id=" << id << " error=" << error;
   }
 
-  void onConnectionEnd() noexcept override {
-    LOG(INFO) << "Socket closed";
-  }
+  void onConnectionEnd() noexcept override { LOG(INFO) << "Socket closed"; }
 
   void onConnectionError(
       std::pair<quic::QuicErrorCode, std::string> error) noexcept override {
@@ -68,15 +65,15 @@ class EchoHandler : public quic::QuicSocket::ConnectionCallback,
     }
   }
 
-  void readError(
-      quic::StreamId id,
-      std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-          error) noexcept override {
+  void
+  readError(quic::StreamId id,
+            std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
+                error) noexcept override {
     LOG(ERROR) << "Got read error on stream=" << id
                << " error=" << toString(error);
   }
 
-  void echo(quic::StreamId id, StreamData& data) {
+  void echo(quic::StreamId id, StreamData &data) {
     if (!data.second) {
       return;
     }
@@ -90,8 +87,8 @@ class EchoHandler : public quic::QuicSocket::ConnectionCallback,
     }
   }
 
-  void onStreamWriteReady(quic::StreamId id, uint64_t maxToSend) noexcept
-      override {
+  void onStreamWriteReady(quic::StreamId id,
+                          uint64_t maxToSend) noexcept override {
     LOG(INFO) << "socket is write ready with maxToSend=" << maxToSend;
     echo(id, input_[id]);
   }
@@ -104,14 +101,12 @@ class EchoHandler : public quic::QuicSocket::ConnectionCallback,
                << " error=" << toString(error);
   }
 
-  folly::EventBase* getEventBase() {
-    return evb;
-  }
+  folly::EventBase *getEventBase() { return evb; }
 
-  folly::EventBase* evb;
+  folly::EventBase *evb;
   std::shared_ptr<quic::QuicSocket> sock;
 
- private:
+private:
   std::map<quic::StreamId, StreamData> input_;
 };
 } // namespace quic
