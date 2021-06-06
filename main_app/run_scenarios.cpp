@@ -7,7 +7,7 @@
 
 const char *CERT_DEFAULT = "cert.pem", *KEY_DEFAULT = "key.pem",
            *LOGGER_IN = "/logger_in", *LOGGER_OUT = "/logger_out",
-           *PICO_PORT = "4433", *MS_PORT = "4434", *TCP_PORT = "4435";
+           *PICO_PORT = "4433", *MS_PORT = "4434",  *TCP_PORT = "4435", *MV_PORT = "4436";
 const int MIN_DEFAULT = 1, MAX_DEFAULT = 101, STEP_DEFAULT = 10,
           REPEAT_DEFAULT = 1;
 
