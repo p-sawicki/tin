@@ -14,14 +14,12 @@
 
 namespace quic {
 class LogQuicStats : public quic::QuicTransportStatsCallback {
- public:
-  explicit LogQuicStats(const std::string& prefix) : prefix_(prefix + " ") {}
+public:
+  explicit LogQuicStats(const std::string &prefix) : prefix_(prefix + " ") {}
 
   ~LogQuicStats() override = default;
 
-  void onPacketReceived() override {
-    VLOG(2) << prefix_ << "onPacketReceived";
-  }
+  void onPacketReceived() override { VLOG(2) << prefix_ << "onPacketReceived"; }
 
   void onDuplicatedPacketReceived() override {
     VLOG(2) << prefix_ << "onDuplicatedPacketReceived";
@@ -35,17 +33,13 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
     VLOG(2) << prefix_ << "onPacketProcessed";
   }
 
-  void onPacketSent() override {
-    VLOG(2) << prefix_ << "onPacketSent";
-  }
+  void onPacketSent() override { VLOG(2) << prefix_ << "onPacketSent"; }
 
   void onPacketRetransmission() override {
     VLOG(2) << prefix_ << "onPacketRetransmission";
   }
 
-  void onPacketLoss() override {
-    VLOG(2) << prefix_ << "onPacketLoss";
-  }
+  void onPacketLoss() override { VLOG(2) << prefix_ << "onPacketLoss"; }
 
   void onPacketSpuriousLoss() override {
     VLOG(2) << prefix_ << "onPacketSpuriousLoss";
@@ -81,9 +75,7 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
   }
 
   // connection level metrics:
-  void onNewConnection() override {
-    VLOG(2) << prefix_ << "onNewConnection";
-  }
+  void onNewConnection() override { VLOG(2) << prefix_ << "onNewConnection"; }
 
   void onConnectionClose(
       folly::Optional<ConnectionCloseReason> reason = folly::none) override {
@@ -92,9 +84,7 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
   }
 
   // stream level metrics
-  void onNewQuicStream() override {
-    VLOG(2) << prefix_ << "onNewQuicStream";
-  }
+  void onNewQuicStream() override { VLOG(2) << prefix_ << "onNewQuicStream"; }
 
   void onQuicStreamClosed() override {
     VLOG(2) << prefix_ << "onQuicStreamClosed";
@@ -113,9 +103,7 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
     VLOG(2) << prefix_ << "onConnFlowControlBlocked";
   }
 
-  void onStatelessReset() override {
-    VLOG(2) << prefix_ << "onStatelessReset";
-  }
+  void onStatelessReset() override { VLOG(2) << prefix_ << "onStatelessReset"; }
 
   void onStreamFlowControlUpdate() override {
     VLOG(2) << prefix_ << "onStreamFlowControlUpdate";
@@ -125,9 +113,7 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
     VLOG(2) << prefix_ << "onStreamFlowControlBlocked";
   }
 
-  void onCwndBlocked() override {
-    VLOG(2) << prefix_ << "onCwndBlocked";
-  }
+  void onCwndBlocked() override { VLOG(2) << prefix_ << "onCwndBlocked"; }
 
   void onNewCongestionController(CongestionControlType type) override {
     VLOG(2) << prefix_ << "onNewCongestionController type="
@@ -135,9 +121,7 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
   }
 
   // Probe timeout counter (aka loss timeout counter)
-  void onPTO() override {
-    VLOG(2) << prefix_ << "onPTO";
-  }
+  void onPTO() override { VLOG(2) << prefix_ << "onPTO"; }
 
   // metrics to track bytes read from / written to wire
   void onRead(size_t bufSize) override {
@@ -183,12 +167,12 @@ class LogQuicStats : public quic::QuicTransportStatsCallback {
     VLOG(2) << prefix_ << "onServerUnfinishedHandshake";
   }
 
- private:
+private:
   std::string prefix_;
 };
 
 class LogQuicStatsFactory : public QuicTransportStatsCallbackFactory {
- public:
+public:
   ~LogQuicStatsFactory() override = default;
 
   std::unique_ptr<QuicTransportStatsCallback> make() override {
