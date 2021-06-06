@@ -1,10 +1,10 @@
-#include <glog/logging.h>
+#include "Client.h"
 #include <fizz/crypto/Utils.h>
 #include <folly/init/Init.h>
 #include <folly/portability/GFlags.h>
-#include "Client.h"
-#include <iostream>
 #include <fstream>
+#include <glog/logging.h>
+#include <iostream>
 
 DEFINE_string(host, "::1", "Echo server hostname/IP");
 DEFINE_int32(port, 4436, "Echo server port");
@@ -26,7 +26,7 @@ int delay(int argc, char **argv, int scenario) {
   return 1;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
 #if FOLLY_HAVE_LIBGFLAGS
   // Enable glog logging to stderr by default.
   //gflags::SetCommandLineOptionWithMode(
@@ -35,16 +35,15 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, false);
   folly::Init init(&argc, &argv);
   fizz::CryptoUtils::init();
-  
-  const std::string& server_host = argv[1];
+
+  const std::string &server_host = argv[1];
   uint16_t server_port = atoi(argv[2]);
   int scenario = atoi(argv[3]);
   //std::string flag = argv[4];
   int ifDelay = delay(argc, argv, scenario);
 
   Client client(FLAGS_host, FLAGS_port);
-  client.start(ifDelay, scenario); 
+  client.start(ifDelay, scenario);
 
   return 0;
 }
-

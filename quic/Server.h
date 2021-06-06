@@ -4,37 +4,34 @@
 
 #include "Handler.h"
 #include "LogQuicStats.h"
+#include <quic/fizz/handshake/QuicFizzFactory.h>
 #include <quic/server/QuicServer.h>
 #include <quic/server/QuicServerTransport.h>
 #include <quic/server/QuicSharedUDPSocketFactory.h>
-#include <quic/fizz/handshake/QuicFizzFactory.h>
 
 namespace quic {
 
 class ServerTransportFactory : public quic::QuicServerTransportFactory {
- public:
+public:
   ~ServerTransportFactory() override {
     while (!Handlers_.empty()) {
-      auto& handler = Handlers_.back();
+      auto &handler = Handlers_.back();
       handler->getEventBase()->runImmediatelyOrRunInEventBaseThreadAndWait(
-          [this] {
-            Handlers_.pop_back();
-          });
+          [this] { Handlers_.pop_back(); });
     }
   }
 
   ServerTransportFactory() = default;
 
-  quic::QuicServerTransport::Ptr make(
-      folly::EventBase* evb,
-      std::unique_ptr<folly::AsyncUDPSocket> sock,
-      const folly::SocketAddress&,
-      std::shared_ptr<const fizz::server::FizzServerContext> ctx) noexcept
+  quic::QuicServerTransport::Ptr
+  make(folly::EventBase *evb, std::unique_ptr<folly::AsyncUDPSocket> sock,
+       const folly::SocketAddress &,
+       std::shared_ptr<const fizz::server::FizzServerContext> ctx) noexcept
       override {
     CHECK_EQ(evb, sock->getEventBase());
     auto Handler = std::make_unique<EchoHandler>(evb);
-    auto transport = quic::QuicServerTransport::make(
-        evb, std::move(sock), *Handler, ctx);
+    auto transport =
+        quic::QuicServerTransport::make(evb, std::move(sock), *Handler, ctx);
     Handler->setQuicSocket(transport);
     Handlers_.push_back(std::move(Handler));
     return transport;
@@ -42,7 +39,7 @@ class ServerTransportFactory : public quic::QuicServerTransportFactory {
 
   std::vector<std::unique_ptr<EchoHandler>> Handlers_;
 
- private:
+private:
 };
 
 class Server {
@@ -57,7 +54,7 @@ class Server {
     serverCtx->setClock(std::make_shared<fizz::SystemClock>());
     server_->setFizzContext(serverCtx);
   }
-  
+
   folly::ssl::EvpPkeyUniquePtr getPrivateKey(folly::StringPiece key) {
     folly::ssl::BioUniquePtr bio(BIO_new(BIO_s_mem()));
     BIO_write(bio.get(), key.data(), key.size());
@@ -65,14 +62,15 @@ class Server {
         PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
     return pkey;
   }
-  
+
   folly::ssl::X509UniquePtr getCert(folly::StringPiece cert) {
     folly::ssl::BioUniquePtr bio(BIO_new(BIO_s_mem()));
     BIO_write(bio.get(), cert.data(), cert.size());
-    folly::ssl::X509UniquePtr x509(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
+    folly::ssl::X509UniquePtr x509(
+        PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
     return x509;
   }
-  
+
   folly::StringPiece kP256Key = R"(
 -----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIHMPeLV/nP/gkcgU2weiXl198mEX8RbFjPRoXuGcpxMXoAoGCCqGSM49
@@ -80,7 +78,7 @@ AwEHoUQDQgAEnYe8rdtl2Nz234sUipZ5tbcQ2xnJWput//E0aMs1i04h0kpcgmES
 ZY67ltZOKYXftBwZSDNDkaSqgbZ4N+Lb8A==
 -----END EC PRIVATE KEY-----
     )";
-    
+
   folly::StringPiece kP256Certificate = R"(
 -----BEGIN CERTIFICATE-----
 MIIB7jCCAZWgAwIBAgIJAMVp7skBzobZMAoGCCqGSM49BAMCMFQxCzAJBgNVBAYT
@@ -96,7 +94,7 @@ NJt9NNcTL7J1ZXbgv6NsvhcjM3p6b175yNO/GqfvpKUCICXFCpHgqkJy8fUsPVWD
 p9fO4UsXiDUnOgvYFDA+YtcU
 -----END CERTIFICATE-----
     )";
-  
+
   std::shared_ptr<fizz::SelfCert> readCert() {
     auto certificate = this->getCert(this->kP256Certificate);
     auto privKey = this->getPrivateKey(this->kP256Key);
@@ -105,14 +103,14 @@ p9fO4UsXiDUnOgvYFDA+YtcU
     return std::make_shared<fizz::SelfCertImpl<fizz::KeyType::P256>>(
         std::move(privKey), std::move(certs));
   }
-  
+
   std::shared_ptr<fizz::server::FizzServerContext> createServerCtx() {
     auto cert = this->readCert();
     auto certManager = std::make_unique<fizz::server::CertManager>();
     certManager->addCert(std::move(cert), true);
 
     auto serverCtx = std::make_shared<fizz::server::FizzServerContext>();
-    
+
     serverCtx->setFactory(std::make_shared<QuicFizzFactory>());
     serverCtx->setCertManager(std::move(certManager));
     serverCtx->setOmitEarlyRecordLayer(true);
@@ -131,7 +129,7 @@ p9fO4UsXiDUnOgvYFDA+YtcU
   
   
 
- private:
+private:
   std::string host_;
   uint16_t port_;
   folly::EventBase eventbase_;

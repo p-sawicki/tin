@@ -4,39 +4,38 @@
 #include <string>
 #include <thread>
 
-#include <glog/logging.h>
+#include "LogQuicStats.h"
+#include "utils.h"
 #include <folly/fibers/Baton.h>
 #include <folly/io/async/ScopedEventBaseThread.h>
+#include <glog/logging.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
 #include <quic/common/BufUtil.h>
 #include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
-#include "LogQuicStats.h"
-#include "utils.h"
 
 namespace quic {
 
 class TestCertificateVerifier : public fizz::CertificateVerifier {
- public:
+public:
   ~TestCertificateVerifier() override = default;
 
-  void verify(const std::vector<std::shared_ptr<const fizz::PeerCert>>&)
+  void verify(const std::vector<std::shared_ptr<const fizz::PeerCert>> &)
       const override {
     return;
   }
 
-  std::vector<fizz::Extension> getCertificateRequestExtensions()
-      const override {
+  std::vector<fizz::Extension>
+  getCertificateRequestExtensions() const override {
     return std::vector<fizz::Extension>();
   }
 };
 
 class Client : public quic::QuicSocket::ConnectionCallback,
-                   public quic::QuicSocket::ReadCallback,
-                   public quic::QuicSocket::WriteCallback {
- public:
-  Client(const std::string& host, uint16_t port)
-      : host_(host), port_(port) {}
+               public quic::QuicSocket::ReadCallback,
+               public quic::QuicSocket::WriteCallback {
+public:
+  Client(const std::string &host, uint16_t port) : host_(host), port_(port) {}
 
   void readAvailable(quic::StreamId streamId) noexcept override {
     auto readData = quicClient_->read(streamId, 0);
@@ -89,14 +88,11 @@ class Client : public quic::QuicSocket::ConnectionCallback,
     startDone_.post();
   }
 
-  void onTransportReady() noexcept override {
-    startDone_.post();
-  }
+  void onTransportReady() noexcept override { startDone_.post(); }
 
-  void onStreamWriteReady(quic::StreamId id, uint64_t maxToSend) noexcept
-      override {
-    LOG(INFO) << "Client socket is write ready with maxToSend="
-              << maxToSend;
+  void onStreamWriteReady(quic::StreamId id,
+                          uint64_t maxToSend) noexcept override {
+    LOG(INFO) << "Client socket is write ready with maxToSend=" << maxToSend;
     sendMessage(id, pendingOutput_[id]);
   }
 
@@ -109,7 +105,7 @@ class Client : public quic::QuicSocket::ConnectionCallback,
   }
 
   std::unique_ptr<fizz::CertificateVerifier> createTestCertificateVerifier() {
-     return std::make_unique<TestCertificateVerifier>();
+    return std::make_unique<TestCertificateVerifier>();
   }
 
   void start(int ifDelay, int scenario) {
@@ -139,10 +135,8 @@ class Client : public quic::QuicSocket::ConnectionCallback,
     });
 
     startDone_.wait();
-    
-    int nbStreams = (unsigned int[]){
-        1, 1, 10, 10
-    }[scenario - 1];
+
+    int nbStreams = (unsigned int[]){1, 1, 10, 10}[scenario - 1];
 
     auto client = quicClient_;
 
@@ -164,8 +158,8 @@ class Client : public quic::QuicSocket::ConnectionCallback,
 
   ~Client() override = default;
 
- private:
-  void sendMessage(quic::StreamId id, BufQueue& data) {
+private:
+  void sendMessage(quic::StreamId id, BufQueue &data) {
     auto message = data.move();
     auto res = quicClient_->writeChain(id, message->clone(), true);
     if (res.hasError()) {
