@@ -42,11 +42,12 @@ int main(int argc, char *argv[]) {
   const std::string &server_host = argv[1];
   uint16_t server_port = atoi(argv[2]);
   int scenario = atoi(argv[3]);
-  //std::string flag = argv[4];
   int ifDelay = delay(argc, argv, scenario);
 
   Client client(FLAGS_host, FLAGS_port);
-  client.start(ifDelay, scenario);
+
+  client.initQuicClient();
+  client.runQuicClient(ifDelay, scenario);
 
   return 0;
 }
