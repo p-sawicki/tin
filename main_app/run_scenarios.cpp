@@ -3,7 +3,7 @@
 
 const char *CERT_DEFAULT = "cert.pem", *KEY_DEFAULT = "key.pem",
            *LOGGER_IN = "/logger_in", *LOGGER_OUT = "/logger_out",
-           *PICO_PORT = "4433", *MS_PORT = "4434", *TCP_PORT = "4435";
+           *PICO_PORT = "4433", *MS_PORT = "4434",  *TCP_PORT = "4435", *MV_PORT = "4436";
 const int MIN_DEFAULT = 1, MAX_DEFAULT = 101, STEP_DEFAULT = 10,
           REPEAT_DEFAULT = 1;
 
@@ -70,6 +70,10 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
   }
 
   // start mvfst server
+  pid_t mvfst = _fork();
+  if (mvfst == 0) {
+    _execl("build/quic/mvserver");
+  }
 
   // start tcp server
   pid_t tcp = _fork();
@@ -78,7 +82,7 @@ std::vector<pid_t> startServers(const char *cert, const char *key) {
   }
 
   std::cout << "All servers started\n";
-  return {pico, msquic, tcp}; // return {pico, msquic, mvfst, tcp};
+  return {pico, msquic, mvfst, tcp};
 }
 
 void runClients(int nbClients, const Logger &logger, const char *name,
@@ -134,7 +138,7 @@ int main(int argc, char **argv) {
 
       runClients(j, logger, "msquic", "build/msquic_impl/ms_client", MS_PORT);
 
-      // mvfst(j);
+      runClients(j, logger, "mvfst", "build/quic/mvclient", MV_PORT);
 
       runClients(j, logger, "tcp", "build/tcp/tcp_client", TCP_PORT);
     }

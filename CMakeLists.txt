@@ -12,6 +12,7 @@ add_subdirectory(utils)
 add_subdirectory(picoquic_impl)
 add_subdirectory(msquic_impl)
 add_subdirectory(tcp)
+add_subdirectory(quic)
 add_subdirectory(main_app)
 
 enable_testing()
