@@ -49,7 +49,9 @@ private:
 class Server {
  public:
   explicit Server(const std::string& host = "::1", uint16_t port = 4436)
-      : host_(host), port_(port), server_(QuicServer::createQuicServer()) {
+      : host_(host), port_(port), server_(QuicServer::createQuicServer()) {}
+  
+  void initQuicServer(){
     server_->setQuicServerTransportFactory(
         std::make_unique<ServerTransportFactory>());
     server_->setTransportStatsCallbackFactory(
@@ -75,30 +77,6 @@ class Server {
     return x509;
   }
 
-  folly::StringPiece kP256Key = R"(
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIHMPeLV/nP/gkcgU2weiXl198mEX8RbFjPRoXuGcpxMXoAoGCCqGSM49
-AwEHoUQDQgAEnYe8rdtl2Nz234sUipZ5tbcQ2xnJWput//E0aMs1i04h0kpcgmES
-ZY67ltZOKYXftBwZSDNDkaSqgbZ4N+Lb8A==
------END EC PRIVATE KEY-----
-    )";
-
-  folly::StringPiece kP256Certificate = R"(
------BEGIN CERTIFICATE-----
-MIIB7jCCAZWgAwIBAgIJAMVp7skBzobZMAoGCCqGSM49BAMCMFQxCzAJBgNVBAYT
-AlVTMQswCQYDVQQIDAJOWTELMAkGA1UEBwwCTlkxDTALBgNVBAoMBEZpenoxDTAL
-BgNVBAsMBEZpenoxDTALBgNVBAMMBEZpenowHhcNMTcwNDA0MTgyOTA5WhcNNDEx
-MTI0MTgyOTA5WjBUMQswCQYDVQQGEwJVUzELMAkGA1UECAwCTlkxCzAJBgNVBAcM
-Ak5ZMQ0wCwYDVQQKDARGaXp6MQ0wCwYDVQQLDARGaXp6MQ0wCwYDVQQDDARGaXp6
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnYe8rdtl2Nz234sUipZ5tbcQ2xnJ
-Wput//E0aMs1i04h0kpcgmESZY67ltZOKYXftBwZSDNDkaSqgbZ4N+Lb8KNQME4w
-HQYDVR0OBBYEFDxbi6lU2XUvrzyK1tGmJEncyqhQMB8GA1UdIwQYMBaAFDxbi6lU
-2XUvrzyK1tGmJEncyqhQMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIg
-NJt9NNcTL7J1ZXbgv6NsvhcjM3p6b175yNO/GqfvpKUCICXFCpHgqkJy8fUsPVWD
-p9fO4UsXiDUnOgvYFDA+YtcU
------END CERTIFICATE-----
-    )";
-
   std::shared_ptr<fizz::SelfCert> readCert() {
     auto certificate = this->getCert(this->kP256Certificate);
     auto privKey = this->getPrivateKey(this->kP256Key);
@@ -122,7 +100,7 @@ p9fO4UsXiDUnOgvYFDA+YtcU
     return serverCtx;
   }
 
-  void start() {
+  void runQuicServer() {
     // Create a SocketAddress and the default or passed in host.
     folly::SocketAddress addr1(host_.c_str(), port_);
     addr1.setFromHostPort(host_, port_);
@@ -131,12 +109,35 @@ p9fO4UsXiDUnOgvYFDA+YtcU
     eventbase_.loopForever();
   }
   
-  
 
 private:
   std::string host_;
   uint16_t port_;
   folly::EventBase eventbase_;
   std::shared_ptr<quic::QuicServer> server_;
-};
+
+  folly::StringPiece kP256Key = R"(
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIHMPeLV/nP/gkcgU2weiXl198mEX8RbFjPRoXuGcpxMXoAoGCCqGSM49
+AwEHoUQDQgAEnYe8rdtl2Nz234sUipZ5tbcQ2xnJWput//E0aMs1i04h0kpcgmES
+ZY67ltZOKYXftBwZSDNDkaSqgbZ4N+Lb8A==
+-----END EC PRIVATE KEY-----
+    )";
+
+  folly::StringPiece kP256Certificate = R"(
+-----BEGIN CERTIFICATE-----
+MIIB7jCCAZWgAwIBAgIJAMVp7skBzobZMAoGCCqGSM49BAMCMFQxCzAJBgNVBAYT
+AlVTMQswCQYDVQQIDAJOWTELMAkGA1UEBwwCTlkxDTALBgNVBAoMBEZpenoxDTAL
+BgNVBAsMBEZpenoxDTALBgNVBAMMBEZpenowHhcNMTcwNDA0MTgyOTA5WhcNNDEx
+MTI0MTgyOTA5WjBUMQswCQYDVQQGEwJVUzELMAkGA1UECAwCTlkxCzAJBgNVBAcM
+Ak5ZMQ0wCwYDVQQKDARGaXp6MQ0wCwYDVQQLDARGaXp6MQ0wCwYDVQQDDARGaXp6
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnYe8rdtl2Nz234sUipZ5tbcQ2xnJ
+Wput//E0aMs1i04h0kpcgmESZY67ltZOKYXftBwZSDNDkaSqgbZ4N+Lb8KNQME4w
+HQYDVR0OBBYEFDxbi6lU2XUvrzyK1tGmJEncyqhQMB8GA1UdIwQYMBaAFDxbi6lU
+2XUvrzyK1tGmJEncyqhQMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIg
+NJt9NNcTL7J1ZXbgv6NsvhcjM3p6b175yNO/GqfvpKUCICXFCpHgqkJy8fUsPVWD
+p9fO4UsXiDUnOgvYFDA+YtcU
+-----END CERTIFICATE-----
+    )";
+  };
 } // namespace quic
