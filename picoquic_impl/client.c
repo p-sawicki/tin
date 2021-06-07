@@ -1,6 +1,5 @@
 #include "common.h"
 #include "utils.h"
-#include <autoqlog.h>
 #include <picoquic.h>
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
@@ -291,9 +290,6 @@ int picoquic_client(char const *server_name, int server_port, int nb_packets,
       ret = -1;
     } else {
       picoquic_set_default_congestion_algorithm(quic, picoquic_bbr_algorithm);
-      picoquic_set_key_log_file_from_env(quic);
-      picoquic_set_qlog(quic, NULL);
-      picoquic_set_log_level(quic, 1);
     }
   }
 

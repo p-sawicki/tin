@@ -8,7 +8,7 @@ execute_process(
 )
 
 add_subdirectory(picoquic)
-include_directories(picoquic/loglib picoquic/picoquic)
+include_directories(picoquic/picoquic)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/picoquic/cmake")
 find_package(PTLS REQUIRED)
@@ -16,7 +16,6 @@ find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
 set(pico_common 
-  picoquic-log
   picoquic-core
   ${PTLS_LIBRARIES}
   ${OPENSSL_LIBRARIES}

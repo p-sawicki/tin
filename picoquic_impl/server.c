@@ -1,6 +1,5 @@
 #include "common.h"
 #include "utils.h"
-#include <autoqlog.h>
 #include <picoquic.h>
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
@@ -204,9 +203,6 @@ int picoquic_server(int server_port, const char *pem_cert,
   } else {
     picoquic_set_cookie_mode(quic, 2);
     picoquic_set_default_congestion_algorithm(quic, picoquic_bbr_algorithm);
-    picoquic_set_qlog(quic, NULL);
-    picoquic_set_log_level(quic, 1);
-    picoquic_set_key_log_file_from_env(quic);
   }
 
   if (ret == 0) {
