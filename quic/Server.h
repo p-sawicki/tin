@@ -47,7 +47,7 @@ class ServerTransportFactory : public quic::QuicServerTransportFactory {
 
 class Server {
  public:
-  explicit Server(const std::string& host = "::1", uint16_t port = 6666)
+  explicit Server(const std::string& host = "::1", uint16_t port = 4436)
       : host_(host), port_(port), server_(QuicServer::createQuicServer()) {
     server_->setQuicServerTransportFactory(
         std::make_unique<ServerTransportFactory>());
@@ -125,9 +125,11 @@ p9fO4UsXiDUnOgvYFDA+YtcU
     folly::SocketAddress addr1(host_.c_str(), port_);
     addr1.setFromHostPort(host_, port_);
     server_->start(addr1, 0);
-    //LOG(INFO) << "Server started at: " << addr1.describe();
+    LOG(INFO) << "Server started at: " << addr1.describe();
     eventbase_.loopForever();
   }
+  
+  
 
  private:
   std::string host_;

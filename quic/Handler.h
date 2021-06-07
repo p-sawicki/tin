@@ -53,6 +53,7 @@ class EchoHandler : public quic::QuicSocket::ConnectionCallback,
     if (input_.find(id) == input_.end()) {
       input_.emplace(id, std::make_pair(BufQueue(), false));
     }
+    
     quic::Buf data = std::move(res.value().first);
     bool eof = res.value().second;
     auto dataLen = (data ? data->computeChainDataLength() : 0);
