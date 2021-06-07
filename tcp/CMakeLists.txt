@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 29.05.2021
+# Autor: Adam Solawa
+
 find_package(OpenSSL REQUIRED)
 
 add_library(tcp_common common.c)

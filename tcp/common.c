@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 29.05.2021
+// Autor: Adam Solawa
+
 #include "common.h"
 
 SSL_CTX *create_context(enum contex_type type) {

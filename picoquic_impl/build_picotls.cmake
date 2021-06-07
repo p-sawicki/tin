@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 03.06.2021
+# Autor: Piotr Sawicki
+
 cmake_host_system_information(RESULT core_count QUERY NUMBER_OF_LOGICAL_CORES)
 execute_process(
   COMMAND ${CMAKE_COMMAND} --configure . -DCMAKE_C_COMPILER=${C_COMPILER}

@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 05.05.2021
+# Autor: Piotr Sawicki
+
 cmake_minimum_required(VERSION 3.10)
 project(tin)
 

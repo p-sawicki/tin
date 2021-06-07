@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 25.05.2021
+# Autor: Anna Pawlus
+
 import csv
 import numpy
 import matplotlib

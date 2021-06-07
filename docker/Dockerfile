@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 29.05.2021
+# Autor: Piotr Sawicki
+
 FROM ubuntu:latest
 RUN apt-get update
 RUN DEBIAN_FRONTEND="noninteractive" apt-get -y install tzdata

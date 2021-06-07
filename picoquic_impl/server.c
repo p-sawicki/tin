@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 11.05.2021
+// Autor: Piotr Sawicki
+
 #include "common.h"
 #include "utils.h"
 #include <picoquic.h>

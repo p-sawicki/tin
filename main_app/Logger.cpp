@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 15.05.2021
+// Autor: Piotr Sawicki
+
 #include "Logger.hpp"
 
 mqd_t Logger::_mq_open(const char *name, int oflag) const {

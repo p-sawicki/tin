@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 12.05.2021
+// Autor: Marcin Białek
+
 #include <gtest/gtest.h>
 #include <mqueue.h>
 #include <stdio.h>

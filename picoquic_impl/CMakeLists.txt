@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 11.05.2021
+# Autor: Piotr Sawicki
+
 execute_process(
   COMMAND ${CMAKE_COMMAND} 
   -DDIR=${CMAKE_CURRENT_SOURCE_DIR}/picotls

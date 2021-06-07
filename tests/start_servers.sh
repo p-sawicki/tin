@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 29.05.2021
+# Autor: Piotr Sawicki
+
 PATH=.
 
 if [ "$#" -eq 1 ]; then

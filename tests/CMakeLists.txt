@@ -1,3 +1,7 @@
+# TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+# Utworzono: 29.05.2021
+# Autor: Piotr Sawicki
+
 function(add_client_tests IMPL PORT REG1 REG2 REG3 REG4)
   add_test(
     NAME ${IMPL}_1

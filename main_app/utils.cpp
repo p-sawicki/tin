@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 15.05.2021
+// Autor: Piotr Sawicki
+
 #include "utils.hpp"
 
 void error(const char *func) {
