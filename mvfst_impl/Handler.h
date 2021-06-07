@@ -52,37 +52,26 @@ public:
     }
 
     quic::Buf data = std::move(res.value().first);
+    bool eof = res.value().second;
     auto dataRec = ((data) ? data->clone()->moveToFbString().toStdString() : std::string());
     auto scenario = std::stoi(dataRec);
-
-    LOG(INFO)<<"Received request scenario= "<<scenario;
     int packetSize = (unsigned int[]) {100, 107374824, 100, 10485760}[scenario - 1];
-    
-    bool eof = res.value().second;
-    auto dataLen = (data ? data->computeChainDataLength() : 0);
+    LOG(INFO)<<"Received request scenario = "<<scenario;
+
     input_[id].first.append(std::move(data));
     input_[id].second = eof;
+
     if (eof) {
-      echo(id, input_[id], packetSize);
+      sendData(id, input_[id], packetSize);
     }
   }
 
-  void
-  readError(quic::StreamId id,
-            std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-                error) noexcept override {
-    LOG(ERROR) << "Got read error on stream=" << id
-               << " error=" << toString(error);
-  }
-
-  void echo(quic::StreamId id, StreamData &data, int packetSize) {
-    if (!data.second) {
-      return;
-    }
+  void sendData(quic::StreamId id, StreamData &data, int packetSize) {
     std::string packet(packetSize, 'x');
-    auto echoedData = folly::IOBuf::copyBuffer(packet);
-    echoedData->prependChain(data.first.move());
-    auto res = sock->writeChain(id, std::move(echoedData), true, nullptr);
+    auto dataPacket = folly::IOBuf::copyBuffer(packet);
+    dataPacket->prependChain(data.first.move());
+
+    auto res = sock->writeChain(id, std::move(dataPacket), true, nullptr);
     if (res.hasError()) {
       LOG(ERROR) << "write error=" << toString(res.error());
     } else {
@@ -90,10 +79,16 @@ public:
     }
   }
 
+  void readError(quic::StreamId id,
+          std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
+              error) noexcept override {
+  LOG(ERROR) << "Got read error on stream=" << id
+              << " error=" << toString(error);
+  }
+
   void onStreamWriteReady(quic::StreamId id,
                           uint64_t maxToSend) noexcept override {
     LOG(INFO) << "socket is write ready with maxToSend=" << maxToSend;
-    //echo(id, input_[id]);
   }
 
   void onStreamWriteError(

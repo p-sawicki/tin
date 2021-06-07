@@ -35,7 +35,7 @@ class Client : public quic::QuicSocket::ConnectionCallback,
                public quic::QuicSocket::ReadCallback,
                public quic::QuicSocket::WriteCallback {
 public:
-  Client(const std::string &host, uint16_t port) : host_(host), port_(port) {}
+  Client(const std::string &host, uint16_t port) : host_(host), port_(port), netThread("ClientThread") {}
 
   void readAvailable(quic::StreamId streamId) noexcept override {
     auto readData = quicClient_->read(streamId, 0);
@@ -106,11 +106,10 @@ public:
     return std::make_unique<TestCertificateVerifier>();
   }
 
-  void start(int ifDelay, int scenario) {
-    folly::ScopedEventBaseThread networkThread("ClientThread");
-    auto evb = networkThread.getEventBase();
+  void initQuicClient() {
+    auto evb = netThread.getEventBase();
     folly::SocketAddress addr(host_.c_str(), port_);
-    std::string message = std::to_string(scenario);
+    
     evb->runInEventBaseThreadAndWait([&] {
       auto sock = std::make_unique<folly::AsyncUDPSocket>(evb);
       auto fizzClientContext =
@@ -124,23 +123,25 @@ public:
 
       TransportSettings settings;
       quicClient_->setTransportSettings(settings);
-
       quicClient_->setTransportStatsCallback(
           std::make_shared<LogQuicStats>("client"));
 
       LOG(INFO) << "Client connecting to " << addr.describe();
       quicClient_->start(this);
     });
-
     startDone_.wait();
+    
+  }
 
-    int nbStreams = (unsigned int[]){1, 1, 10, 10}[scenario - 1];
-
+void runQuicClient(int ifDelay, int scenario) {
+    auto evb1 = netThread.getEventBase();
     auto client = quicClient_;
+    //auto evb = networkThread.getEventBase();
+    int nbStreams = (unsigned int[]){1, 1, 10, 10}[scenario - 1];
+    std::string message = std::to_string(scenario);
 
     for(int i = 0; i < nbStreams; i++) {
-
-      evb->runInEventBaseThreadAndWait([=] {
+      evb1->runInEventBaseThreadAndWait([=] {
         // create new stream for each message
         auto streamId = client->createBidirectionalStream().value();
         client->setReadCallback(streamId, this);
@@ -167,7 +168,6 @@ private:
     } else {
       auto str = message->moveToFbString().toStdString();
       LOG(INFO) << "Client sending request, scenario "<< str << " on stream=" << id;
-      // sent whole message
       pendingOutput_.erase(id);
     }
   }
@@ -178,5 +178,6 @@ private:
   std::map<quic::StreamId, BufQueue> pendingOutput_;
   std::map<quic::StreamId, uint64_t> recvOffsets_;
   folly::fibers::Baton startDone_;
+  folly::ScopedEventBaseThread netThread;
 };
 } // namespace quic

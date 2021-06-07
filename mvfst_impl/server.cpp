@@ -22,7 +22,8 @@ int main(int argc, char *argv[]) {
   fizz::CryptoUtils::init();
 
   quic::Server server(FLAGS_host, FLAGS_port);
-  server.start();
+  server.initQuicServer();
+  server.runQuicServer();
 
   return 0;
 }
