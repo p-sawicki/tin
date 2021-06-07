@@ -41,8 +41,8 @@ class Client : public quic::QuicSocket::ConnectionCallback,
   void readAvailable(quic::StreamId streamId) noexcept override {
     auto readData = quicClient_->read(streamId, 0);
     if (readData.hasError()) {
-      //LOG(ERROR) << "Client failed read from stream=" << streamId
-                 //<< ", error=" << (uint32_t)readData.error();
+      LOG(ERROR) << "Client failed read from stream=" << streamId
+                 << ", error=" << (uint32_t)readData.error();
     }
     auto copy = readData->first->clone();
     if (recvOffsets_.find(streamId) == recvOffsets_.end()) {
@@ -50,42 +50,42 @@ class Client : public quic::QuicSocket::ConnectionCallback,
     } else {
       recvOffsets_[streamId] += copy->length();
     }
-    //LOG(INFO) << "Client received data=" << copy->moveToFbString().toStdString()
-    //          << " on stream=" << streamId;
+    LOG(INFO) << "Client received data=" << copy->moveToFbString().toStdString()
+              << " on stream=" << streamId;
   }
 
   void readError(
       quic::StreamId streamId,
       std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
           error) noexcept override {
-    //LOG(ERROR) << "Client failed read from stream=" << streamId
-               //<< ", error=" << toString(error);
+    LOG(ERROR) << "Client failed read from stream=" << streamId
+               << ", error=" << toString(error);
   }
 
   void onNewBidirectionalStream(quic::StreamId id) noexcept override {
-    //LOG(INFO) << "Client: new bidirectional stream=" << id;
+    LOG(INFO) << "Client: new bidirectional stream=" << id;
     quicClient_->setReadCallback(id, this);
   }
 
   void onNewUnidirectionalStream(quic::StreamId id) noexcept override {
-    //LOG(INFO) << "Client: new unidirectional stream=" << id;
+    LOG(INFO) << "Client: new unidirectional stream=" << id;
     quicClient_->setReadCallback(id, this);
   }
 
   void onStopSending(
       quic::StreamId id,
       quic::ApplicationErrorCode /*error*/) noexcept override {
-    //VLOG(10) << "Client got StopSending stream id=" << id;
+      VLOG(10) << "Client got StopSending stream id=" << id;
   }
 
   void onConnectionEnd() noexcept override {
-    //LOG(INFO) << "Client connection end";
+      LOG(INFO) << "Client connection end";
   }
 
   void onConnectionError(
       std::pair<quic::QuicErrorCode, std::string> error) noexcept override {
-    //LOG(ERROR) << "Client error: " << toString(error.first)
-               //<< "; errStr=" << error.second;
+      LOG(ERROR) << "Client error: " << toString(error.first)
+                 << "; errStr=" << error.second;
     startDone_.post();
   }
 
@@ -116,7 +116,7 @@ class Client : public quic::QuicSocket::ConnectionCallback,
     folly::ScopedEventBaseThread networkThread("ClientThread");
     auto evb = networkThread.getEventBase();
     folly::SocketAddress addr(host_.c_str(), port_);
-    std::string message="mess";
+    std::string message="AAAAA";
     evb->runInEventBaseThreadAndWait([&] {
       auto sock = std::make_unique<folly::AsyncUDPSocket>(evb);
       auto fizzClientContext =
@@ -134,7 +134,7 @@ class Client : public quic::QuicSocket::ConnectionCallback,
       quicClient_->setTransportStatsCallback(
           std::make_shared<LogQuicStats>("client"));
 
-      //LOG(INFO) << "Client connecting to " << addr.describe();
+      LOG(INFO) << "Client connecting to " << addr.describe();
       quicClient_->start(this);
     });
 
@@ -145,8 +145,8 @@ class Client : public quic::QuicSocket::ConnectionCallback,
     }[scenario - 1];
 
     auto client = quicClient_;
-    //LOG(INFO) << "Client stopping client";
-    for(unsigned int i = 0; i < nbStreams; i++) {
+
+    for(int i = 0; i < nbStreams; i++) {
 
       evb->runInEventBaseThreadAndWait([=] {
         // create new stream for each message
@@ -155,11 +155,11 @@ class Client : public quic::QuicSocket::ConnectionCallback,
         pendingOutput_[streamId].append(folly::IOBuf::copyBuffer(message));
         sendMessage(streamId, pendingOutput_[streamId]);
       });
-      if (nbStreams == 1) 
-          sleep(6);
+      //if (nbStreams > 1 && ifDelay) 
+          sleep(2);
       
     }
-    //LOG(INFO) << "Client stopping client";
+    LOG(INFO) << "Client stopping client";
   }
 
   ~Client() override = default;
@@ -169,7 +169,7 @@ class Client : public quic::QuicSocket::ConnectionCallback,
     auto message = data.move();
     auto res = quicClient_->writeChain(id, message->clone(), true);
     if (res.hasError()) {
-      //LOG(ERROR) << "Client writeChain error=" << uint32_t(res.error());
+      LOG(ERROR) << "Client writeChain error=" << uint32_t(res.error());
     } else {
       auto str = message->moveToFbString().toStdString();
       LOG(INFO) << "Client wrote \"" << str << "\""
