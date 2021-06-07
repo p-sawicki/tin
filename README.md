@@ -13,7 +13,7 @@ git clone https://github.com/p-sawicki/tin.git --recursive
 ```
 sudo apt-get update
 sudo apt-get install libssl-dev cmake
-pip3 install argparse ipcqueue
+pip3 install argparse ipcqueue matplotlib
 ```
 
 ## Build configuration
