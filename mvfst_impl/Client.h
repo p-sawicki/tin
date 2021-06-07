@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 06.07.2021
+// Autor: Anna Pawlus
+
 #pragma once
 
 #include <iostream>
