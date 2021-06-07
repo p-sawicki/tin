@@ -1,3 +1,7 @@
+// TIN - Porównanie wybranych implementacji protokołów TCP i QUIC
+// Utworzono: 06.07.2021
+// Autor: Anna Pawlus
+
 #include "Server.h"
 #include <fizz/crypto/Utils.h>
 #include <folly/init/Init.h>
