@@ -49,8 +49,6 @@ public:
     } else {
       recvOffsets_[streamId] += copy->length();
     }
-    LOG(INFO) << "Client received data=" << copy->moveToFbString().toStdString()
-              << " on stream=" << streamId;
   }
 
   void readError(
@@ -112,7 +110,7 @@ public:
     folly::ScopedEventBaseThread networkThread("ClientThread");
     auto evb = networkThread.getEventBase();
     folly::SocketAddress addr(host_.c_str(), port_);
-    std::string message="AAAAA";
+    std::string message = std::to_string(scenario);
     evb->runInEventBaseThreadAndWait([&] {
       auto sock = std::make_unique<folly::AsyncUDPSocket>(evb);
       auto fizzClientContext =
@@ -149,11 +147,13 @@ public:
         pendingOutput_[streamId].append(folly::IOBuf::copyBuffer(message));
         sendMessage(streamId, pendingOutput_[streamId]);
       });
-      //if (nbStreams > 1 && ifDelay) 
-          sleep(2);
+      if (nbStreams > 1) 
+          sleep(6);
       
     }
-    LOG(INFO) << "Client stopping client";
+
+    sleep(2);
+    LOG(INFO) << "Client stopping client.";
   }
 
   ~Client() override = default;
@@ -166,8 +166,7 @@ private:
       LOG(ERROR) << "Client writeChain error=" << uint32_t(res.error());
     } else {
       auto str = message->moveToFbString().toStdString();
-      LOG(INFO) << "Client wrote \"" << str << "\""
-                << ", len=" << str.size() << " on stream=" << id;
+      LOG(INFO) << "Client sending request, scenario "<< str << " on stream=" << id;
       // sent whole message
       pendingOutput_.erase(id);
     }
