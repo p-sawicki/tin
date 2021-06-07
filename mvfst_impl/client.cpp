@@ -6,9 +6,8 @@
 #include <glog/logging.h>
 #include <iostream>
 
-DEFINE_string(host, "::1", "Echo server hostname/IP");
-DEFINE_int32(port, 4436, "Echo server port");
-DEFINE_string(mode, "server", "Mode to run in: 'client' or 'server'");
+DEFINE_string(host, "::1", "Server hostname/IP");
+DEFINE_int32(port, 4436, "Server port");
 DEFINE_string(emode, "quiet", "Mode to run in: 'quiet' or 'no-delay'");
 
 using namespace quic;
@@ -29,8 +28,8 @@ int delay(int argc, char **argv, int scenario) {
 int main(int argc, char *argv[]) {
 #if FOLLY_HAVE_LIBGFLAGS
   // Enable glog logging to stderr by default.
-  //gflags::SetCommandLineOptionWithMode(
-  //    "logtostderr", "1", gflags::SET_FLAGS_DEFAULT);
+  gflags::SetCommandLineOptionWithMode(
+      "logtostderr", "1", gflags::SET_FLAGS_DEFAULT);
 #endif
   gflags::ParseCommandLineFlags(&argc, &argv, false);
   folly::Init init(&argc, &argv);
