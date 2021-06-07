@@ -36,7 +36,7 @@ public:
 
   void onConnectionError(
       std::pair<quic::QuicErrorCode, std::string> error) noexcept override {
-    LOG(ERROR) << "Socket error=" << toString(error.first);
+    //LOG(ERROR) << "Socket error=" << toString(error.first);
   }
 
   void readAvailable(quic::StreamId id) noexcept override {
@@ -50,19 +50,20 @@ public:
     if (input_.find(id) == input_.end()) {
       input_.emplace(id, std::make_pair(BufQueue(), false));
     }
-    
+
     quic::Buf data = std::move(res.value().first);
+    auto dataRec = ((data) ? data->clone()->moveToFbString().toStdString() : std::string());
+    auto scenario = std::stoi(dataRec);
+
+    LOG(INFO)<<"Received request scenario= "<<scenario;
+    int packetSize = (unsigned int[]) {100, 107374824, 100, 10485760}[scenario - 1];
+    
     bool eof = res.value().second;
     auto dataLen = (data ? data->computeChainDataLength() : 0);
-    LOG(INFO) << "Got len=" << dataLen << " eof=" << uint32_t(eof)
-              << " total=" << input_[id].first.chainLength() + dataLen
-              << " data="
-              << ((data) ? data->clone()->moveToFbString().toStdString()
-                         : std::string());
     input_[id].first.append(std::move(data));
     input_[id].second = eof;
     if (eof) {
-      echo(id, input_[id]);
+      echo(id, input_[id], packetSize);
     }
   }
 
@@ -74,11 +75,12 @@ public:
                << " error=" << toString(error);
   }
 
-  void echo(quic::StreamId id, StreamData &data) {
+  void echo(quic::StreamId id, StreamData &data, int packetSize) {
     if (!data.second) {
       return;
     }
-    auto echoedData = folly::IOBuf::copyBuffer("echo ");
+    std::string packet(packetSize, 'x');
+    auto echoedData = folly::IOBuf::copyBuffer(packet);
     echoedData->prependChain(data.first.move());
     auto res = sock->writeChain(id, std::move(echoedData), true, nullptr);
     if (res.hasError()) {
@@ -91,7 +93,7 @@ public:
   void onStreamWriteReady(quic::StreamId id,
                           uint64_t maxToSend) noexcept override {
     LOG(INFO) << "socket is write ready with maxToSend=" << maxToSend;
-    echo(id, input_[id]);
+    //echo(id, input_[id]);
   }
 
   void onStreamWriteError(

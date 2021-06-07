@@ -14,8 +14,8 @@ using namespace fizz;
 int main(int argc, char *argv[]) {
 #if FOLLY_HAVE_LIBGFLAGS
 // Enable glog logging to stderr by default.
- // gflags::SetCommandLineOptionWithMode(
- //     "logtostderr", "1", gflags::SET_FLAGS_DEFAULT);
+  gflags::SetCommandLineOptionWithMode(
+      "logtostderr", "1", gflags::SET_FLAGS_DEFAULT);
 #endif
   gflags::ParseCommandLineFlags(&argc, &argv, false);
   folly::Init init(&argc, &argv);
