@@ -26,7 +26,7 @@ def readFile(filename):
             cpu_usage[-1].append(float(row[2]))
 
 
-def plot(name, xlabel, ylabel, x, ys):
+def plot(name, xlabel, ylabel, x, ys, average):
     """
     drawing and saving plot
     """
@@ -42,12 +42,14 @@ def plot(name, xlabel, ylabel, x, ys):
     plt.plot(x, y)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.axhline(y=min_average, linestyle="--", linewidth=0.5, color="gray")
-    plt.text(0, min_average, 'min. średnia', fontsize=10, va='center')
-    plt.axhline(y=max_average, linestyle="--", linewidth=0.5, color="gray")
-    plt.text(0, max_average, 'maks. średnia', fontsize=10, va='center')
-    plt.axhline(y=average, linestyle="--", linewidth=0.5, color="gray")
-    plt.text(0, average, 'średnia', fontsize=10, va='center')
+
+    if average:
+        plt.axhline(y=min_average, linestyle="--", linewidth=0.5, color="gray")
+        plt.text(0, min_average, 'min. średnia', fontsize=10, va='center')
+        plt.axhline(y=max_average, linestyle="--", linewidth=0.5, color="gray")
+        plt.text(0, max_average, 'maks. średnia', fontsize=10, va='center')
+        plt.axhline(y=average, linestyle="--", linewidth=0.5, color="gray")
+        plt.text(0, average, 'średnia', fontsize=10, va='center')
 
     plt.title(f'{name}\n'
               f'Średnia: {average:.2f} '
@@ -60,6 +62,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("log_file", nargs="+", type=str, help="log files")
     parser.add_argument("scenario", type=str, help="scenario name")
+    parser.add_argument("--average", dest='average', action='store_true', help='include calcualted averages on the plot')
     args = parser.parse_args()
     time_t = []
     mem_usage = []
@@ -70,5 +73,5 @@ if __name__ == '__main__':
 
     time_t = max(time_t, key=len)
     time_t = [(t - time_t[0])/1000 for t in time_t]
-    plot(f'{args.scenario}: średnie zużycie pamięci', 'czas [s]', 'zajętość pamięci [MB]', time_t, mem_usage)
-    plot(f'{args.scenario}: średnie zużycie procesora', 'czas [s]', 'zużycie procesora [%]', time_t, cpu_usage)
+    plot(f'{args.scenario}: średnie zużycie pamięci', 'czas [ms]', 'zajętość pamięci [MB]', time_t, mem_usage, args.average)
+    plot(f'{args.scenario}: średnie zużycie procesora', 'czas [ms]', 'zużycie procesora [%]', time_t, cpu_usage, args.average)

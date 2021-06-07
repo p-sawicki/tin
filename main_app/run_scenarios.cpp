@@ -56,29 +56,21 @@ void parseArgs(int argc, char **argv, const char *cert, const char *key,
   }
 }
 
-std::vector<pid_t> startServers(const char *cert, const char *key) {
-  std::cout << "Starting servers\n";
-
-  pid_t pico = _fork();
-  if (pico == 0) {
-    _execl("build/picoquic_impl/pico_server", PICO_PORT, cert, key, "--quiet");
+pid_t startServer(const char *path, const char *port, const char *cert,
+                  const char *key, const Logger &logger) {
+  pid_t pid = _fork();
+  if (pid == 0) {
+    _execl(path, port, cert, key, "--quiet");
   }
 
-  pid_t msquic = _fork();
-  if (msquic == 0) {
-    _execl("build/msquic_impl/ms_server", MS_PORT, cert, key, "--quiet");
-  }
+  logger.logPID(pid);
+  return pid;
+}
 
-  // start mvfst server
+void killServer(pid_t pid, const Logger &logger) {
+  logger.remove(1);
 
-  // start tcp server
-  pid_t tcp = _fork();
-  if (tcp == 0) {
-    _execl("build/tcp/tcp_server", TCP_PORT, cert, key, "--quiet");
-  }
-
-  std::cout << "All servers started\n";
-  return {pico, msquic, tcp}; // return {pico, msquic, mvfst, tcp};
+  kill(pid, SIGKILL);
 }
 
 void runClients(int nbClients, const Logger &logger, const char *name,
@@ -110,6 +102,14 @@ void runClients(int nbClients, const Logger &logger, const char *name,
   std::cout << "\t\tAll scenarios with " << name << " finished\n";
 }
 
+void runImpl(const char *serverPath, const char *clientPath, const char *port,
+             const char *cert, const char *key, const Logger &logger,
+             int nbClients, const char *name) {
+  pid_t pid = startServer(serverPath, port, cert, key, logger);
+  runClients(nbClients, logger, name, clientPath, port);
+  killServer(pid, logger);
+}
+
 int main(int argc, char **argv) {
   const char *cert = CERT_DEFAULT, *key = KEY_DEFAULT;
   int min = MIN_DEFAULT, max = MAX_DEFAULT, step = STEP_DEFAULT,
@@ -119,34 +119,22 @@ int main(int argc, char **argv) {
 
   Logger logger(LOGGER_IN, LOGGER_OUT);
 
-  auto serverPIDs = startServers(cert, key);
-  for (pid_t pid : serverPIDs) {
-    logger.logPID(pid);
-  }
   for (int i = 0; i < repeat; ++i) {
     std::cout << "Run #" << i + 1 << "\n";
 
     for (int j = min; j <= max; j += step) {
       std::cout << "\tStarting scenarios with " << j << " clients\n";
 
-      runClients(j, logger, "picoquic", "build/picoquic_impl/pico_client",
-                 PICO_PORT);
+      runImpl("build/picoquic_impl/pico_server",
+              "build/picoquic_impl/pico_client", PICO_PORT, cert, key, logger,
+              j, "picoquic");
 
-      runClients(j, logger, "msquic", "build/msquic_impl/ms_client", MS_PORT);
+      runImpl("build/msquic_impl/ms_server", "build/msquic_impl/ms_client",
+              MS_PORT, cert, key, logger, j, "msquic");
 
-      // mvfst(j);
-
-      runClients(j, logger, "tcp", "build/tcp/tcp_client", TCP_PORT);
+      runImpl("build/tcp/tcp_server", "build/tcp/tcp_client", TCP_PORT, cert,
+              key, logger, j, "tcp");
     }
   }
-
-  std::cout << "All runs finished, killing servers\n";
-
-  for (pid_t pid : serverPIDs) {
-    if (kill(pid, SIGKILL) < 0) {
-      error("kill");
-    }
-  }
-
-  std::cout << "Goodbye\n";
+  std::cout << "All runs finished. Goodbye\n";
 }
